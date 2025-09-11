@@ -282,21 +282,21 @@ export default function Marketplace() {
                 </div>
 
                 {/* Stats and Actions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <Download className="h-3 w-3" />
                       <span>{agent.downloads.toLocaleString()}</span>
                     </div>
-                    <span>by {agent.author}</span>
+                    <span className="truncate">by {agent.author}</span>
                   </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                  <div className="flex flex-col gap-2">
+                    <Button variant="outline" size="sm" className="w-full">
                       <Eye className="h-3 w-3 mr-1" />
                       Preview
                     </Button>
-                    <Button size="sm" className="button-primary">
-                      Add
+                    <Button size="sm" className="button-primary w-full">
+                      Add to Workspace
                     </Button>
                   </div>
                 </div>
