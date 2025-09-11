@@ -159,19 +159,23 @@
   }
   
   .status-pill {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap;
   }
   
   .status-success {
-    @apply bg-success/10 text-success border border-success/20;
+    @apply bg-success/10 text-success border border-success/20 flex-shrink-0;
   }
   
   .status-warning {
-    @apply bg-warning/10 text-warning border border-warning/20;
+    @apply bg-warning/10 text-warning border border-warning/20 flex-shrink-0;
   }
   
   .status-error {
-    @apply bg-destructive/10 text-destructive border border-destructive/20;
+    @apply bg-destructive/10 text-destructive border border-destructive/20 flex-shrink-0;
+  }
+  
+  .status-primary {
+    @apply bg-primary/10 text-primary border border-primary/20 flex-shrink-0;
   }
   
   .gradient-primary {
