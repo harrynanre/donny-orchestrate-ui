@@ -15,6 +15,13 @@ export default function Dashboard() {
   const [selectedAgent, setSelectedAgent] = useState("content-creator")
   const [chatMessage, setChatMessage] = useState("")
 
+  // Fallback: ensure quickActions exists to prevent runtime errors
+  const quickActions = [
+    { id: 'create-agent', label: 'Create Agent', icon: Bot },
+    { id: 'start-task', label: 'Start Task', icon: CheckSquare },
+    { id: 'open-chat', label: 'Open Chat', icon: Zap },
+  ]
+
   const availableAgents = [
     { 
       id: "content-creator", 
@@ -70,29 +77,18 @@ export default function Dashboard() {
           </p>
           
           {/* Quick Actions */}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant="secondary"
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-            >
-              <Bot className="h-4 w-4 mr-2" />
-              Create Agent
-            </Button>
-            <Button
-              variant="secondary"
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-            >
-              <CheckSquare className="h-4 w-4 mr-2" />
-              Start Task
-            </Button>
-            <Button
-              variant="secondary"
-              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-            >
-              <Zap className="h-4 w-4 mr-2" />
-              Open Chat
-            </Button>
-          </div>
+           <div className="flex flex-wrap gap-3">
+             {quickActions.map((action) => (
+               <Button
+                 key={action.id}
+                 variant="secondary"
+                 className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+               >
+                 <action.icon className="h-4 w-4 mr-2" />
+                 {action.label}
+               </Button>
+             ))}
+           </div>
         </div>
         
         {/* Decorative gradient overlay */}
