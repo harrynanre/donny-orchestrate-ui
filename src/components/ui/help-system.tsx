@@ -114,7 +114,7 @@ export function HelpSystem() {
           <button
             ref={buttonRef}
             onMouseDown={handleMouseDown}
-            className="h-12 w-12 rounded-2xl bg-gradient-primary text-primary-foreground shadow-elegant hover:shadow-glow transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:scale-105"
+            className="h-12 w-12 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 hover:scale-105"
           >
             <HelpCircle className="h-5 w-5" />
           </button>
