@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Terminal as TerminalIcon, Play, Settings, Zap } from "lucide-react"
+import { Terminal as TerminalIcon, Play, Settings, Zap, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { toast } from "@/hooks/use-toast"
 
 export default function Terminal() {
   const [provider, setProvider] = useState("none")
@@ -23,6 +24,14 @@ export default function Terminal() {
     password: "",
     sessionCookie: "",
   })
+
+  const handleSaveClaudeSettings = () => {
+    toast({
+      title: "Connection Settings Saved",
+      description: "Claude browser connection settings have been saved (UI-only).",
+    })
+    setShowClaudeSettings(false)
+  }
 
   const [consoleOutput] = useState([
     { timestamp: "14:23:45", type: "info", message: "Terminal initialized" },
@@ -232,6 +241,14 @@ export default function Terminal() {
 
             <Button className="w-full" variant="outline" disabled>
               Test Sign-in (UI-only)
+            </Button>
+            
+            <Button 
+              className="w-full button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2" 
+              onClick={handleSaveClaudeSettings}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save / Submit
             </Button>
           </div>
         </SheetContent>

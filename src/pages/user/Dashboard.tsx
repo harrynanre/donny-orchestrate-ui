@@ -122,20 +122,20 @@ export default function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold">Live Preview</h2>
           <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-            <SelectTrigger className="w-64">
+            <SelectTrigger className="w-64 focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-popover border border-border">
               {availableAgents.map((agent) => (
                 <SelectItem key={agent.id} value={agent.id}>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-6 w-6">
+                  <div className="flex items-center gap-3 agent-selector-content">
+                    <Avatar className="h-6 w-6 flex-shrink-0">
                       <AvatarImage src={agent.avatar} alt={agent.name} />
                       <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
                     </Avatar>
-                    <div className="flex flex-col">
-                      <span className="font-medium">{agent.name}</span>
-                      <span className="text-xs text-muted-foreground">{agent.tagline}</span>
+                    <div className="flex flex-col min-w-0 flex-1">
+                      <span className="font-medium agent-selector-text">{agent.name}</span>
+                      <span className="text-xs text-muted-foreground agent-selector-text">{agent.tagline}</span>
                     </div>
                   </div>
                 </SelectItem>
@@ -192,6 +192,26 @@ export default function Dashboard() {
 
             <TabsContent value="browser" className="mt-0">
               <div className="p-6">
+                {/* Address Bar */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded border border-border min-w-0 flex-1">
+                      <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground truncate">
+                        {availableAgents.find(a => a.id === selectedAgent)?.name === "Content Creator" 
+                          ? "https://blog.example.com/ai-automation-guide"
+                          : availableAgents.find(a => a.id === selectedAgent)?.name === "Data Analyzer"
+                          ? "https://analytics.company.com/dashboard" 
+                          : "https://support.helpdesk.com/tickets"
+                        }
+                      </span>
+                    </div>
+                    <Button variant="ghost" size="sm" className="px-2">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
                 <div className="bg-muted/30 rounded-lg border-2 border-dashed border-border h-96 flex items-center justify-center">
                   <div className="text-center">
                     <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

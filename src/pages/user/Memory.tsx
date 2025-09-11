@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { toast } from "@/hooks/use-toast"
 
 export default function Memory() {
   const [selectedAgent, setSelectedAgent] = useState("all")
@@ -131,6 +132,64 @@ export default function Memory() {
     // Handle adding memory (UI-only)
     setShowAddMemory(false)
     setNewMemory({ tag: "", key: "", value: "", scope: "user" })
+    toast({
+      title: "Memory Added",
+      description: "Memory item has been successfully added (mock).",
+    })
+  }
+
+  const handleExportJSON = () => {
+    // Generate mock memory export data
+    const mockMemoryData = {
+      exportDate: new Date().toISOString(),
+      memoryItems: [
+        {
+          id: "mem_001",
+          tag: "preference", 
+          key: "timezone",
+          value: "UTC-8",
+          scope: "User",
+          created: "2024-01-15T10:30:00Z",
+          lastUpdated: "2024-01-15T10:30:00Z"
+        },
+        {
+          id: "mem_002", 
+          tag: "context",
+          key: "company_name", 
+          value: "TechCorp Inc",
+          scope: "Workspace",
+          created: "2024-01-10T14:20:00Z",
+          lastUpdated: "2024-01-10T14:20:00Z"
+        },
+        {
+          id: "mem_003",
+          tag: "setting",
+          key: "notification_style",
+          value: "minimal", 
+          scope: "User",
+          created: "2024-01-12T09:15:00Z",
+          lastUpdated: "2024-01-12T09:15:00Z"
+        }
+      ]
+    }
+
+    // Create and download the file
+    const blob = new Blob([JSON.stringify(mockMemoryData, null, 2)], { 
+      type: 'application/json' 
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'memory-export-sample.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+
+    toast({
+      title: "Export Complete",
+      description: "Memory data has been exported to JSON file (sample data).",
+    })
   }
 
   return (
@@ -269,7 +328,7 @@ export default function Memory() {
                     <Plus className="h-4 w-4 mr-2" />
                     Add
                   </Button>
-                  <Button variant="outline">
+                  <Button variant="outline" onClick={handleExportJSON} className="focus:ring-2 focus:ring-ring focus:ring-offset-2">
                     <Download className="h-4 w-4 mr-2" />
                     Export JSON
                   </Button>

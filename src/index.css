@@ -158,8 +158,9 @@
     @apply text-foreground hover:bg-secondary/50 font-medium px-4 py-2 rounded-lg transition-all duration-200;
   }
   
+  /* Status Pills - Enhanced with flex-shrink-0 for better text containment */
   .status-pill {
-    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap;
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 min-w-0;
   }
   
   .status-success {
@@ -178,6 +179,10 @@
     @apply bg-primary/10 text-primary border border-primary/20 flex-shrink-0;
   }
   
+  .status-info {
+    @apply bg-accent/10 text-accent border border-accent/20 flex-shrink-0;
+  }
+  
   .gradient-primary {
     background: var(--gradient-primary);
   }
@@ -190,7 +195,75 @@
     @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200;
   }
   
-  .sidebar-nav-item-active {
-    @apply bg-sidebar-primary text-sidebar-primary-foreground;
+  /* Mobile/Tablet Responsive Improvements */
+  @media (max-width: 768px) {
+    .card-enterprise {
+      @apply rounded-xl;
+    }
+    
+    .button-primary, .button-secondary {
+      @apply px-4 py-3 min-h-[44px] text-base;
+    }
+    
+    /* Ensure touch targets are at least 44px */
+    .mobile-touch-target, 
+    button,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"] {
+      @apply min-h-[44px] min-w-[44px];
+    }
+    
+    /* Adjust sidebar for mobile */
+    .sidebar-mobile {
+      @apply fixed inset-x-0 bottom-0 bg-sidebar border-t border-sidebar-border h-16 flex items-center justify-around px-4 z-50;
+    }
+  }
+  
+  /* Tablet breakpoint */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .sidebar-tablet {
+      @apply w-16;
+    }
+    
+    .sidebar-tablet .sidebar-label {
+      @apply hidden;
+    }
+  }
+  
+  /* Focus ring improvements for accessibility */
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  [role="button"]:focus-visible,
+  [tabindex]:focus-visible {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background outline-none;
+  }
+  
+  /* Keyboard navigation improvements */
+  [tabindex="0"]:focus,
+  [tabindex="-1"]:focus {
+    @apply ring-2 ring-ring ring-offset-2 outline-none;
+  }
+  
+  /* Truncate utilities with ellipsis - improved */
+  .truncate-with-ellipsis {
+    @apply truncate max-w-full overflow-hidden;
+  }
+  
+  /* Ensure proper text wrapping in constrained containers */
+  .text-wrap-container {
+    @apply break-words overflow-wrap-anywhere hyphens-auto;
+  }
+  
+  /* Agent selector improvements */
+  .agent-selector-content {
+    @apply min-w-0 flex-1;
+  }
+  
+  .agent-selector-text {
+    @apply truncate max-w-full;
   }
 }

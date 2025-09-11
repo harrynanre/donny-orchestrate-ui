@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus } from "lucide-react"
+import { useState, useEffect } from "react"
+import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -45,6 +46,7 @@ export default function Settings() {
   const [credentials, setCredentials] = useState({
     siteName: "",
     baseUrl: "",
+    websiteAddress: "",
     loginType: "form",
     username: "",
     password: "",
@@ -56,6 +58,20 @@ export default function Settings() {
     cookieString: "",
     vaultGroup: "website-creds",
   })
+
+  const [connectionStatus, setConnectionStatus] = useState<"unknown" | "reachable" | "unreachable" | "testing">("unknown")
+  const [profileFormDirty, setProfileFormDirty] = useState(false)
+  const [workspaceFormDirty, setWorkspaceFormDirty] = useState(false)
+  const [initialProfileData, setInitialProfileData] = useState(profileData)
+  const [initialWorkspaceData, setInitialWorkspaceData] = useState(workspaceData)
+
+  useEffect(() => {
+    setInitialProfileData(profileData)
+  }, [])
+
+  useEffect(() => {
+    setInitialWorkspaceData(workspaceData)
+  }, [])
 
   const [showPassword, setShowPassword] = useState(false)
 
@@ -105,6 +121,92 @@ export default function Settings() {
     if (newApiKey.isVerified) {
       console.log("Submitting verified API key:", newApiKey)
       setNewApiKey({ name: "", key: "", isVerified: false })
+      toast({
+        title: "API Key Added",
+        description: "Your API key has been successfully added to the vault (mock).",
+      })
+    }
+  }
+
+  const validateWebsiteUrl = (url: string) => {
+    const urlPattern = /^https?:\/\/.+/
+    return urlPattern.test(url)
+  }
+
+  const handleTestConnection = async () => {
+    if (!credentials.websiteAddress) {
+      toast({
+        title: "Error",
+        description: "Please enter a website address first",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (!validateWebsiteUrl(credentials.websiteAddress)) {
+      toast({
+        title: "Invalid URL",
+        description: "Website address must include https:// or http://",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setConnectionStatus("testing")
+    
+    // Mock connection test with random result
+    setTimeout(() => {
+      const isReachable = Math.random() > 0.5
+      setConnectionStatus(isReachable ? "reachable" : "unreachable")
+      
+      toast({
+        title: isReachable ? "Site reachable" : "Could not reach site",
+        description: isReachable 
+          ? "Successfully connected to the website" 
+          : "Unable to establish connection to the website",
+        variant: isReachable ? "default" : "destructive"
+      })
+    }, 2000)
+  }
+
+  const handleProfileSave = () => {
+    setProfileFormDirty(false)
+    setInitialProfileData(profileData)
+    toast({
+      title: "Profile Saved",
+      description: "Your profile has been successfully updated (mock).",
+    })
+  }
+
+  const handleWorkspaceSave = () => {
+    setWorkspaceFormDirty(false)
+    setInitialWorkspaceData(workspaceData)
+    toast({
+      title: "Workspace Saved", 
+      description: "Your workspace settings have been successfully updated (mock).",
+    })
+  }
+
+  const checkProfileDirty = (newData: typeof profileData) => {
+    const isDirty = JSON.stringify(newData) !== JSON.stringify(initialProfileData)
+    setProfileFormDirty(isDirty)
+  }
+
+  const checkWorkspaceDirty = (newData: typeof workspaceData) => {
+    const isDirty = JSON.stringify(newData) !== JSON.stringify(initialWorkspaceData)
+    setWorkspaceFormDirty(isDirty)
+  }
+
+  const getConnectionStatusBadge = () => {
+    switch (connectionStatus) {
+      case "reachable":
+        return <Badge className="status-pill status-success"><CheckCircle className="h-3 w-3 mr-1" />Reachable</Badge>
+      case "unreachable":
+        return <Badge className="status-pill status-error"><XCircle className="h-3 w-3 mr-1" />Unreachable</Badge>
+      case "testing":
+        return <Badge className="status-pill status-warning"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Testing...</Badge>
+      default:
+        return <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Unknown</Badge>
     }
   }
 
@@ -178,7 +280,11 @@ export default function Settings() {
                   <Input
                     id="name"
                     value={profileData.name}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => {
+                      const newData = { ...profileData, name: e.target.value }
+                      setProfileData(newData)
+                      checkProfileDirty(newData)
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -187,7 +293,11 @@ export default function Settings() {
                     id="email"
                     type="email"
                     value={profileData.email}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => {
+                      const newData = { ...profileData, email: e.target.value }
+                      setProfileData(newData)
+                      checkProfileDirty(newData)
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -236,14 +346,22 @@ export default function Settings() {
                 <Textarea
                   id="bio"
                   value={profileData.bio}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, bio: e.target.value }))}
+                  onChange={(e) => {
+                    const newData = { ...profileData, bio: e.target.value }
+                    setProfileData(newData)
+                    checkProfileDirty(newData)
+                  }}
                   placeholder="Tell us about yourself..."
                   rows={3}
                 />
               </div>
 
               <div className="flex justify-end">
-                <Button className="button-primary">
+                <Button 
+                  className="button-primary"
+                  disabled={!profileFormDirty}
+                  onClick={handleProfileSave}
+                >
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
                 </Button>
@@ -268,7 +386,11 @@ export default function Settings() {
                   <Input
                     id="workspaceName"
                     value={workspaceData.name}
-                    onChange={(e) => setWorkspaceData(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => {
+                      const newData = { ...workspaceData, name: e.target.value }
+                      setWorkspaceData(newData)
+                      checkWorkspaceDirty(newData)
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -276,7 +398,11 @@ export default function Settings() {
                   <Textarea
                     id="workspaceDescription"
                     value={workspaceData.description}
-                    onChange={(e) => setWorkspaceData(prev => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => {
+                      const newData = { ...workspaceData, description: e.target.value }
+                      setWorkspaceData(newData)
+                      checkWorkspaceDirty(newData)
+                    }}
                     placeholder="Describe your workspace..."
                     rows={3}
                   />
@@ -307,7 +433,11 @@ export default function Settings() {
               </div>
 
               <div className="flex justify-end">
-                <Button className="button-primary">
+                <Button 
+                  className="button-primary"
+                  disabled={!workspaceFormDirty}
+                  onClick={handleWorkspaceSave}
+                >
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
                 </Button>
@@ -536,13 +666,46 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="baseUrl">Base URL</Label>
-                  <Input
-                    id="baseUrl"
-                    value={credentials.baseUrl}
-                    onChange={(e) => setCredentials(prev => ({ ...prev, baseUrl: e.target.value }))}
-                    placeholder="https://example.com"
-                  />
+                  <Label htmlFor="websiteAddress">Website Address / Base URL *</Label>
+                  <div className="space-y-2">
+                    <Input
+                      id="websiteAddress"
+                      value={credentials.websiteAddress}
+                      onChange={(e) => {
+                        setCredentials(prev => ({ ...prev, websiteAddress: e.target.value }))
+                        if (connectionStatus !== "unknown") {
+                          setConnectionStatus("unknown")
+                        }
+                      }}
+                      placeholder="https://example.com"
+                      className={!validateWebsiteUrl(credentials.websiteAddress) && credentials.websiteAddress ? "border-destructive" : ""}
+                    />
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">Include https:// or http://</p>
+                      <div className="flex items-center gap-2">
+                        {getConnectionStatusBadge()}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTestConnection}
+                          disabled={connectionStatus === "testing"}
+                          className="focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        >
+                          {connectionStatus === "testing" ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              Testing...
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="h-3 w-3 mr-1" />
+                              Test Connection
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
