@@ -17,6 +17,7 @@ import Settings from "./pages/user/Settings";
 import Billing from "./pages/user/Billing";
 import Terminal from "./pages/user/Terminal";
 import Memory from "./pages/user/Memory";
+import YouTube from "./pages/user/YouTube";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/user/tasks" element={<DashboardLayout><Tasks /></DashboardLayout>} />
             <Route path="/user/terminal" element={<DashboardLayout><Terminal /></DashboardLayout>} />
             <Route path="/user/memory" element={<DashboardLayout><Memory /></DashboardLayout>} />
+            <Route path="/user/youtube" element={<DashboardLayout><YouTube /></DashboardLayout>} />
             <Route path="/user/activity" element={<DashboardLayout><Activity /></DashboardLayout>} />
             <Route path="/user/marketplace" element={<DashboardLayout><Marketplace /></DashboardLayout>} />
             <Route path="/user/analytics" element={<DashboardLayout><Analytics /></DashboardLayout>} />

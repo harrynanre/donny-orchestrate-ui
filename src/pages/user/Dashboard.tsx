@@ -1,24 +1,56 @@
 "use client"
 
-import { Plus, Bot, CheckSquare, BarChart3, Globe, Activity, Zap } from "lucide-react"
+import { useState } from "react"
+import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
 
 export default function Dashboard() {
-  const quickActions = [
-    { title: "Create Agent", icon: Bot, description: "Design and deploy a new AI agent" },
-    { title: "Start Task", icon: CheckSquare, description: "Initiate a new task or workflow" },
-    { title: "Open Chat", icon: Zap, description: "Get immediate help from Donny" },
+  const [selectedAgent, setSelectedAgent] = useState("content-creator")
+  const [chatMessage, setChatMessage] = useState("")
+
+  const availableAgents = [
+    { 
+      id: "content-creator", 
+      name: "Content Creator", 
+      tagline: "Generates and optimizes content across platforms",
+      avatar: "/placeholder-avatar.jpg",
+      status: "active"
+    },
+    { 
+      id: "data-analyzer", 
+      name: "Data Analyzer", 
+      tagline: "Processes and analyzes complex datasets",
+      avatar: "/placeholder-avatar.jpg",
+      status: "idle"
+    },
+    { 
+      id: "web-scanner", 
+      name: "Web Scanner", 
+      tagline: "Monitors and optimizes website performance",
+      avatar: "/placeholder-avatar.jpg",
+      status: "running"
+    },
   ]
 
-  const features = [
-    { title: "Create Agent", icon: Bot, description: "Build custom AI agents for any workflow" },
-    { title: "Start Task", icon: CheckSquare, description: "Launch tasks and let Donny orchestrate" },
-    { title: "Scan & Fix Website", icon: Globe, description: "Automated website analysis and optimization" },
-    { title: "Chat with Donny", icon: Zap, description: "Get instant AI assistance and guidance" },
-    { title: "Analytics", icon: BarChart3, description: "Track performance and optimize workflows" },
-    { title: "Marketplace", icon: Activity, description: "Discover pre-built agents and templates" },
+  const agentLogs = [
+    { timestamp: "14:23:45", level: "info", message: "Starting content generation task..." },
+    { timestamp: "14:23:47", level: "success", message: "Successfully connected to OpenAI API" },
+    { timestamp: "14:23:50", level: "info", message: "Analyzing target audience preferences..." },
+    { timestamp: "14:24:15", level: "success", message: "Generated 3 content variations" },
+    { timestamp: "14:24:18", level: "info", message: "Optimizing for SEO keywords..." },
+  ]
+
+  const chatHistory = [
+    { role: "agent", message: "Hello! I'm your Content Creator agent. How can I help you today?", timestamp: "14:20:00" },
+    { role: "user", message: "Can you help me write a blog post about AI automation?", timestamp: "14:20:30" },
+    { role: "agent", message: "Absolutely! I'd be happy to help you create a blog post about AI automation. Let me start by researching the latest trends and best practices.", timestamp: "14:20:45" },
   ]
 
   const systemStatus = [
@@ -39,16 +71,27 @@ export default function Dashboard() {
           
           {/* Quick Actions */}
           <div className="flex flex-wrap gap-3">
-            {quickActions.map((action) => (
-              <Button
-                key={action.title}
-                variant="secondary"
-                className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-              >
-                <action.icon className="h-4 w-4 mr-2" />
-                {action.title}
-              </Button>
-            ))}
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+            >
+              <Bot className="h-4 w-4 mr-2" />
+              Create Agent
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              Start Task
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Open Chat
+            </Button>
           </div>
         </div>
         
@@ -56,28 +99,149 @@ export default function Dashboard() {
         <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-white/10 to-transparent" />
       </div>
 
-      {/* Features Grid */}
+      {/* Live Preview Panel */}
       <div>
-        <h2 className="text-2xl font-semibold mb-6">Quick Start</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((feature) => (
-            <Card key={feature.title} className="card-enterprise group cursor-pointer hover:scale-[1.02] transition-all duration-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
-                    <feature.icon className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold">Live Preview</h2>
+          <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {availableAgents.map((agent) => (
+                <SelectItem key={agent.id} value={agent.id}>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={agent.avatar} alt={agent.name} />
+                      <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{agent.name}</span>
+                      <span className="text-xs text-muted-foreground">{agent.tagline}</span>
+                    </div>
                   </div>
-                  <CardTitle className="text-lg">{feature.title}</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <CardDescription className="text-sm leading-relaxed">
-                  {feature.description}
-                </CardDescription>
-              </CardContent>
-            </Card>
-          ))}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
+        <Card className="card-enterprise">
+          <Tabs defaultValue="logs" className="w-full">
+            <div className="border-b">
+              <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0">
+                <TabsTrigger value="logs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <Activity className="h-4 w-4 mr-2" />
+                  Logs
+                </TabsTrigger>
+                <TabsTrigger value="browser" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <Eye className="h-4 w-4 mr-2" />
+                  Browser
+                </TabsTrigger>
+                <TabsTrigger value="chat" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Chat
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="logs" className="mt-0">
+              <div className="p-6">
+                <ScrollArea className="h-96 w-full">
+                  <div className="space-y-2">
+                    {agentLogs.map((log, index) => (
+                      <div key={index} className="flex gap-3 text-sm font-mono">
+                        <span className="text-muted-foreground">[{log.timestamp}]</span>
+                        <span className={`${
+                          log.level === "success" ? "text-green-600 dark:text-green-400" :
+                          log.level === "error" ? "text-red-600 dark:text-red-400" :
+                          log.level === "warning" ? "text-yellow-600 dark:text-yellow-400" :
+                          "text-foreground"
+                        }`}>
+                          {log.message}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-2 text-sm font-mono">
+                      <span className="text-muted-foreground">[live]</span>
+                      <span className="text-green-500 animate-pulse">●</span>
+                      <span className="text-muted-foreground">Real-time stream active</span>
+                    </div>
+                  </div>
+                </ScrollArea>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="browser" className="mt-0">
+              <div className="p-6">
+                <div className="bg-muted/30 rounded-lg border-2 border-dashed border-border h-96 flex items-center justify-center">
+                  <div className="text-center">
+                    <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <h3 className="font-medium mb-2">Browser Viewport</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Live view of what the agent is browsing will appear here
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="chat" className="mt-0">
+              <div className="flex flex-col h-96">
+                <ScrollArea className="flex-1 p-6">
+                  <div className="space-y-4">
+                    {chatHistory.map((msg, index) => (
+                      <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
+                        {msg.role === "agent" && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
+                            <AvatarFallback className="text-xs">AI</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className={`max-w-[70%] ${msg.role === "user" ? "order-first" : ""}`}>
+                          <div className={`p-3 rounded-lg ${
+                            msg.role === "user" 
+                              ? "bg-primary text-primary-foreground ml-auto" 
+                              : "bg-muted"
+                          }`}>
+                            <p className="text-sm">{msg.message}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 px-3">
+                            {msg.timestamp}
+                          </p>
+                        </div>
+                        {msg.role === "user" && (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">JD</AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <div className="border-t p-4">
+                  <div className="flex gap-2">
+                    <Input
+                      value={chatMessage}
+                      onChange={(e) => setChatMessage(e.target.value)}
+                      placeholder="Message your agent..."
+                      className="flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          // Handle send message (UI-only)
+                          setChatMessage("")
+                        }
+                      }}
+                    />
+                    <Button className="button-primary">
+                      Send
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
 
       {/* System Status */}

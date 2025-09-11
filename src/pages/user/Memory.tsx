@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Database, Plus, Edit, Archive, Download, Pin, Trash2, Upload, AlertTriangle } from "lucide-react"
+import { Database, Plus, Edit, Archive, Download, Pin, Trash2, Upload, AlertTriangle, CheckCircle, FileText, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,36 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 export default function Memory() {
   const [selectedAgent, setSelectedAgent] = useState("all")
   const [showAddMemory, setShowAddMemory] = useState(false)
+  
+  const rawDataItems = [
+    {
+      id: "1",
+      source: "YouTube Transcript",
+      title: "AI Agents in Business Automation",
+      content: "Welcome to today's video about AI agents and business automation...",
+      dateAdded: "2024-01-15",
+      status: "pending",
+      type: "transcript"
+    },
+    {
+      id: "2", 
+      source: "Website Scan",
+      title: "Homepage Performance Analysis",
+      content: "Page load time: 2.3s, Core Web Vitals: Good, SEO Score: 85/100...",
+      dateAdded: "2024-01-14",
+      status: "verified",
+      type: "analysis"
+    },
+    {
+      id: "3",
+      source: "Document Upload",
+      title: "Company Guidelines Extract",
+      content: "Our company values include innovation, customer-centricity...",
+      dateAdded: "2024-01-13",
+      status: "pending",
+      type: "document"
+    },
+  ]
   
   const [newMemory, setNewMemory] = useState({
     tag: "",
@@ -118,7 +148,11 @@ export default function Memory() {
 
       {/* Memory Tabs */}
       <Tabs defaultValue="user" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="rawdata" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Raw Data
+          </TabsTrigger>
           <TabsTrigger value="user" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
             User Memory
@@ -132,6 +166,92 @@ export default function Memory() {
             Documents
           </TabsTrigger>
         </TabsList>
+
+        {/* Raw Data Tab */}
+        <TabsContent value="rawdata" className="space-y-6">
+          <Card className="card-enterprise">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Raw Data Pipeline</CardTitle>
+                  <CardDescription>
+                    New knowledge and data ingested by agents awaiting verification
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" disabled>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Verify Selected
+                  </Button>
+                  <Button variant="outline" disabled>
+                    <ArrowRight className="h-4 w-4 mr-2" />
+                    Move to Memory
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {rawDataItems.map((item) => (
+                  <div key={item.id} className="p-4 border border-border rounded-lg">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary">{item.source}</Badge>
+                          <Badge className={`status-pill ${
+                            item.status === "verified" ? "status-success" : "status-warning"
+                          }`}>
+                            {item.status}
+                          </Badge>
+                        </div>
+                        <h3 className="font-medium mb-1">{item.title}</h3>
+                        <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                          {item.content}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Added {item.dateAdded}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 ml-4">
+                        <Button variant="ghost" size="icon" title="View Details">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Verify">
+                          <CheckCircle className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-destructive" title="Reject">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-6 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-primary"></div>
+                    <span className="text-sm font-medium">Raw Data</span>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <span className="text-sm font-medium">Verification</span>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm font-medium">Memory</span>
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Items move through this pipeline to ensure data quality before becoming permanent agent memory.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* User Memory Tab */}
         <TabsContent value="user" className="space-y-6">

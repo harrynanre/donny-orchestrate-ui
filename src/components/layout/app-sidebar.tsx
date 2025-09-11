@@ -15,7 +15,8 @@ import {
   Settings,
   CreditCard,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Youtube
 } from "lucide-react"
 
 import {
@@ -38,6 +39,7 @@ const navigationItems = [
   { title: "Tasks", url: "/user/tasks", icon: CheckSquare },
   { title: "Terminal", url: "/user/terminal", icon: Terminal },
   { title: "Memory", url: "/user/memory", icon: Database },
+  { title: "YouTube Processor", url: "/user/youtube", icon: Youtube },
   { title: "Activity", url: "/user/activity", icon: Activity },
   { title: "Marketplace", url: "/user/marketplace", icon: Store },
   { title: "Analytics", url: "/user/analytics", icon: BarChart3 },
