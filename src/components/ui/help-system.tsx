@@ -120,17 +120,17 @@ export function HelpSystem() {
           </button>
         </SheetTrigger>
         
-        <SheetContent side="right" className="w-96 sm:max-w-96">
-          <SheetHeader className="space-y-2">
+        <SheetContent side="right" className="w-96 sm:max-w-96 flex flex-col h-full">
+          <SheetHeader className="space-y-2 flex-shrink-0">
             <SheetTitle className="text-lg font-semibold">Help Assistant</SheetTitle>
             <SheetDescription className="text-sm text-muted-foreground">
               Ask questions about Donny Hub features and get instant help
             </SheetDescription>
           </SheetHeader>
           
-          <div className="flex flex-col h-full mt-6">
-            <ScrollArea className="flex-1 -mr-4 pr-4 mb-4">
-              <div className="space-y-3">
+          <div className="flex flex-col flex-1 mt-6 min-h-0">
+            <ScrollArea className="flex-1 -mr-4 pr-4">
+              <div className="space-y-3 pb-4">
                 {conversations.length === 0 && (
                   <Card className="rounded-2xl border-border/50">
                     <CardContent className="pt-6">
@@ -166,7 +166,7 @@ export function HelpSystem() {
               </div>
             </ScrollArea>
             
-            <div className="border-t border-border/50 pt-4 space-y-3">
+            <div className="border-t border-border/50 pt-4 space-y-3 flex-shrink-0 bg-background">
               <div className="flex gap-2">
                 <Input
                   value={question}
@@ -183,7 +183,7 @@ export function HelpSystem() {
                 <Button 
                   onClick={handleAskQuestion} 
                   size="icon"
-                  className="rounded-xl bg-gradient-primary hover:shadow-glow transition-all duration-200"
+                  className="rounded-xl bg-blue-500 hover:bg-blue-600 transition-all duration-200"
                   disabled={!question.trim()}
                 >
                   <Send className="h-4 w-4" />
