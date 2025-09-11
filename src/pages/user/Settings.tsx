@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { User, Building, Bell, Key, Save } from "lucide-react"
+import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function Settings() {
   const [profileData, setProfileData] = useState({
@@ -34,6 +35,23 @@ export default function Settings() {
     weeklyReports: true,
     emailNotifications: true,
   })
+
+  const [credentials, setCredentials] = useState({
+    siteName: "",
+    baseUrl: "",
+    loginType: "form",
+    username: "",
+    password: "",
+    twoFA: "",
+    usernameSelector: "",
+    passwordSelector: "",
+    submitSelector: "",
+    oauthProvider: "",
+    cookieString: "",
+    vaultGroup: "website-creds",
+  })
+
+  const [showPassword, setShowPassword] = useState(false)
 
   const apiKeys = [
     {
@@ -66,7 +84,7 @@ export default function Settings() {
 
       {/* Settings Tabs */}
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profile
@@ -82,6 +100,10 @@ export default function Settings() {
           <TabsTrigger value="api" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             API Keys
+          </TabsTrigger>
+          <TabsTrigger value="credentials" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Website Credentials
           </TabsTrigger>
         </TabsList>
 
@@ -383,6 +405,219 @@ export default function Settings() {
                 <Key className="h-4 w-4 mr-2" />
                 Create New API Key
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Website Credentials Tab */}
+        <TabsContent value="credentials" className="space-y-6">
+          <Card className="card-enterprise">
+            <CardHeader>
+              <CardTitle>Website Credentials</CardTitle>
+              <CardDescription>
+                Manage website login credentials for automated access
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="siteName">Site Name</Label>
+                  <Input
+                    id="siteName"
+                    value={credentials.siteName}
+                    onChange={(e) => setCredentials(prev => ({ ...prev, siteName: e.target.value }))}
+                    placeholder="e.g., Company Portal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="baseUrl">Base URL</Label>
+                  <Input
+                    id="baseUrl"
+                    value={credentials.baseUrl}
+                    onChange={(e) => setCredentials(prev => ({ ...prev, baseUrl: e.target.value }))}
+                    placeholder="https://example.com"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Login Type</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={credentials.loginType === "form" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCredentials(prev => ({ ...prev, loginType: "form" }))}
+                    >
+                      Form
+                    </Button>
+                    <Button
+                      variant={credentials.loginType === "oauth" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCredentials(prev => ({ ...prev, loginType: "oauth" }))}
+                    >
+                      OAuth
+                    </Button>
+                    <Button
+                      variant={credentials.loginType === "cookie" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCredentials(prev => ({ ...prev, loginType: "cookie" }))}
+                    >
+                      Cookie
+                    </Button>
+                  </div>
+                </div>
+
+                {credentials.loginType === "form" && (
+                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          value={credentials.username}
+                          onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showPassword ? "text" : "password"}
+                            value={credentials.password}
+                            onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3"
+                            onClick={() => setShowPassword(!showPassword)}
+                          >
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="twoFA">2FA/OTP</Label>
+                        <Input
+                          id="twoFA"
+                          value={credentials.twoFA}
+                          onChange={(e) => setCredentials(prev => ({ ...prev, twoFA: e.target.value }))}
+                          placeholder="Optional"
+                        />
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h4 className="text-sm font-medium">Optional CSS Selectors</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="usernameSelector">Username Selector</Label>
+                          <Input
+                            id="usernameSelector"
+                            value={credentials.usernameSelector}
+                            onChange={(e) => setCredentials(prev => ({ ...prev, usernameSelector: e.target.value }))}
+                            placeholder="#username"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="passwordSelector">Password Selector</Label>
+                          <Input
+                            id="passwordSelector"
+                            value={credentials.passwordSelector}
+                            onChange={(e) => setCredentials(prev => ({ ...prev, passwordSelector: e.target.value }))}
+                            placeholder="#password"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="submitSelector">Submit Selector</Label>
+                          <Input
+                            id="submitSelector"
+                            value={credentials.submitSelector}
+                            onChange={(e) => setCredentials(prev => ({ ...prev, submitSelector: e.target.value }))}
+                            placeholder="button[type=submit]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {credentials.loginType === "oauth" && (
+                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
+                      <Label htmlFor="oauthProvider">OAuth Provider</Label>
+                      <Select value={credentials.oauthProvider} onValueChange={(value) => setCredentials(prev => ({ ...prev, oauthProvider: value }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select provider" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="google">Google</SelectItem>
+                          <SelectItem value="microsoft">Microsoft</SelectItem>
+                          <SelectItem value="custom">Custom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button variant="outline" disabled>
+                      Connect (UI-only)
+                    </Button>
+                  </div>
+                )}
+
+                {credentials.loginType === "cookie" && (
+                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                    <div className="space-y-2">
+                      <Label htmlFor="cookieString">Cookie String</Label>
+                      <Textarea
+                        id="cookieString"
+                        value={credentials.cookieString}
+                        onChange={(e) => setCredentials(prev => ({ ...prev, cookieString: e.target.value }))}
+                        placeholder="session_id=abc123; auth_token=xyz789"
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Paste your session cookies. Note: Cookies may expire and need updating.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="vaultGroup">Vault Group</Label>
+                  <Select value={credentials.vaultGroup} onValueChange={(value) => setCredentials(prev => ({ ...prev, vaultGroup: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="website-creds">Website Credentials</SelectItem>
+                      <SelectItem value="api-keys">API Keys</SelectItem>
+                      <SelectItem value="personal">Personal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-start gap-2">
+                  <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-800 dark:text-amber-200">Security Notice</p>
+                    <p className="text-amber-700 dark:text-amber-300">
+                      All credentials are encrypted at rest. Do not store one-time codes or temporary tokens.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline">Cancel</Button>
+                <Button className="button-primary">
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Credentials
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
