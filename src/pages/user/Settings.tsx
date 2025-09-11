@@ -191,20 +191,43 @@ export default function Settings() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
-                  <Input
-                    id="company"
-                    value={profileData.company}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, company: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Input
-                    id="timezone"
-                    value={profileData.timezone}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, timezone: e.target.value }))}
-                  />
+                  <Select value={profileData.timezone} onValueChange={(value) => setProfileData(prev => ({ ...prev, timezone: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UTC-12:00 (Baker Island)">UTC-12:00 (Baker Island)</SelectItem>
+                      <SelectItem value="UTC-11:00 (American Samoa)">UTC-11:00 (American Samoa)</SelectItem>
+                      <SelectItem value="UTC-10:00 (Hawaii)">UTC-10:00 (Hawaii)</SelectItem>
+                      <SelectItem value="UTC-09:00 (Alaska)">UTC-09:00 (Alaska)</SelectItem>
+                      <SelectItem value="UTC-08:00 (Pacific Time)">UTC-08:00 (Pacific Time)</SelectItem>
+                      <SelectItem value="UTC-07:00 (Mountain Time)">UTC-07:00 (Mountain Time)</SelectItem>
+                      <SelectItem value="UTC-06:00 (Central Time)">UTC-06:00 (Central Time)</SelectItem>
+                      <SelectItem value="UTC-05:00 (Eastern Time)">UTC-05:00 (Eastern Time)</SelectItem>
+                      <SelectItem value="UTC-04:00 (Atlantic Time)">UTC-04:00 (Atlantic Time)</SelectItem>
+                      <SelectItem value="UTC-03:00 (Argentina)">UTC-03:00 (Argentina)</SelectItem>
+                      <SelectItem value="UTC-02:00 (Mid-Atlantic)">UTC-02:00 (Mid-Atlantic)</SelectItem>
+                      <SelectItem value="UTC-01:00 (Azores)">UTC-01:00 (Azores)</SelectItem>
+                      <SelectItem value="UTC+00:00 (GMT/London)">UTC+00:00 (GMT/London)</SelectItem>
+                      <SelectItem value="UTC+01:00 (Central European)">UTC+01:00 (Central European)</SelectItem>
+                      <SelectItem value="UTC+02:00 (Eastern European)">UTC+02:00 (Eastern European)</SelectItem>
+                      <SelectItem value="UTC+03:00 (Moscow)">UTC+03:00 (Moscow)</SelectItem>
+                      <SelectItem value="UTC+04:00 (Dubai)">UTC+04:00 (Dubai)</SelectItem>
+                      <SelectItem value="UTC+05:00 (Pakistan)">UTC+05:00 (Pakistan)</SelectItem>
+                      <SelectItem value="UTC+05:30 (India)">UTC+05:30 (India)</SelectItem>
+                      <SelectItem value="UTC+06:00 (Bangladesh)">UTC+06:00 (Bangladesh)</SelectItem>
+                      <SelectItem value="UTC+07:00 (Bangkok)">UTC+07:00 (Bangkok)</SelectItem>
+                      <SelectItem value="UTC+08:00 (China/Singapore)">UTC+08:00 (China/Singapore)</SelectItem>
+                      <SelectItem value="UTC+09:00 (Japan/Korea)">UTC+09:00 (Japan/Korea)</SelectItem>
+                      <SelectItem value="UTC+09:30 (Adelaide)">UTC+09:30 (Adelaide)</SelectItem>
+                      <SelectItem value="UTC+10:00 (Sydney)">UTC+10:00 (Sydney)</SelectItem>
+                      <SelectItem value="UTC+11:00 (Solomon Islands)">UTC+11:00 (Solomon Islands)</SelectItem>
+                      <SelectItem value="UTC+12:00 (New Zealand)">UTC+12:00 (New Zealand)</SelectItem>
+                      <SelectItem value="UTC+13:00 (Samoa)">UTC+13:00 (Samoa)</SelectItem>
+                      <SelectItem value="UTC+14:00 (Line Islands)">UTC+14:00 (Line Islands)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

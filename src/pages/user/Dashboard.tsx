@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,9 +13,29 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [selectedAgent, setSelectedAgent] = useState("content-creator")
   const [chatMessage, setChatMessage] = useState("")
+  const [showCreateAgentModal, setShowCreateAgentModal] = useState(false)
+  const [showStartTaskModal, setShowStartTaskModal] = useState(false)
 
+  const handleQuickAction = (actionId: string) => {
+    switch (actionId) {
+      case 'create-agent':
+        navigate('/user/agents')
+        break
+      case 'start-task':
+        navigate('/user/tasks')
+        break
+      case 'open-chat':
+        // Scroll to chat section or trigger global chat
+        const chatSection = document.querySelector('[data-chat-section]')
+        if (chatSection) {
+          chatSection.scrollIntoView({ behavior: 'smooth' })
+        }
+        break
+    }
+  }
   // Fallback: ensure quickActions exists to prevent runtime errors
   const quickActions = [
     { id: 'create-agent', label: 'Create Agent', icon: Bot },
@@ -83,6 +104,7 @@ export default function Dashboard() {
                  key={action.id}
                  variant="secondary"
                  className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+                 onClick={() => handleQuickAction(action.id)}
                >
                  <action.icon className="h-4 w-4 mr-2" />
                  {action.label}
@@ -182,7 +204,7 @@ export default function Dashboard() {
               </div>
             </TabsContent>
 
-            <TabsContent value="chat" className="mt-0">
+            <TabsContent value="chat" className="mt-0" data-chat-section>
               <div className="flex flex-col h-96">
                 <ScrollArea className="flex-1 p-6">
                   <div className="space-y-4">
