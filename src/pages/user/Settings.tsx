@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle, Cpu, ExternalLink } from "lucide-react"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle, Cpu, ExternalLink, Camera, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { agentStore, type ActiveModel } from "@/lib/agent-store"
 
@@ -153,9 +154,15 @@ class ApiKeyValidator {
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile")
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [showPhotoModal, setShowPhotoModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<{ type: 'revoke' | 'edit', keyId: string } | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [activeModels, setActiveModels] = useState<ActiveModel[]>([])
+  const [isCameraMode, setIsCameraMode] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-detect system timezone
   const getSystemTimezone = () => {
@@ -346,6 +353,96 @@ export default function Settings() {
     return unsubscribe
   }, [])
 
+  // Photo management functions
+  const openPhotoModal = () => {
+    setShowPhotoModal(true)
+    setCapturedImage(null)
+    setIsCameraMode(false)
+  }
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      })
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        setIsCameraMode(true)
+      }
+    } catch (error) {
+      toast({
+        title: "Camera Error",
+        description: "Unable to access camera. Please check permissions.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream
+      stream.getTracks().forEach(track => track.stop())
+      videoRef.current.srcObject = null
+    }
+    setIsCameraMode(false)
+  }
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current
+      const video = videoRef.current
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.drawImage(video, 0, 0)
+        const dataURL = canvas.toDataURL('image/jpeg', 0.8)
+        setCapturedImage(dataURL)
+        stopCamera()
+      }
+    }
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Please select an image smaller than 2MB.",
+          variant: "destructive"
+        })
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        setCapturedImage(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const saveProfilePhoto = () => {
+    if (capturedImage) {
+      const updatedProfile = { ...profileData, avatar: capturedImage }
+      setProfileData(updatedProfile)
+      localStorage.setItem('donny-hub-profile', JSON.stringify(updatedProfile))
+      
+      // Dispatch custom event to notify header component
+      window.dispatchEvent(new CustomEvent('profile-updated', { 
+        detail: updatedProfile 
+      }))
+      
+      setShowPhotoModal(false)
+      setCapturedImage(null)
+      toast({
+        title: "Photo Updated",
+        description: "Your profile photo has been successfully updated.",
+      })
+    }
+  }
 
   // Real-time API key validation
   const validateApiKey = useCallback(async (keyData: ApiKeyData, updateState: (updater: (prev: ApiKeyData) => ApiKeyData) => void) => {
@@ -597,7 +694,6 @@ export default function Settings() {
     }
   }
 
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -650,13 +746,13 @@ export default function Settings() {
               {/* Profile Picture */}
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="Profile" />
+                  <AvatarImage src={profileData.avatar} alt="Profile" />
                   <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
                     {profileData.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm">Change Photo</Button>
+                  <Button variant="outline" size="sm" onClick={openPhotoModal}>Change Photo</Button>
                   <p className="text-sm text-muted-foreground">
                     JPG, PNG or GIF. Max size 2MB.
                   </p>
@@ -1501,6 +1597,92 @@ export default function Settings() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Photo Upload Modal */}
+      <Dialog open={showPhotoModal} onOpenChange={setShowPhotoModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Profile Photo</DialogTitle>
+            <DialogDescription>
+              Take a photo with your camera or upload an image from your device.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {!isCameraMode && !capturedImage && (
+              <div className="flex gap-2">
+                <Button onClick={startCamera} className="flex-1">
+                  <Camera className="h-4 w-4 mr-2" />
+                  Take Photo
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1"
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Image
+                </Button>
+              </div>
+            )}
+
+            {isCameraMode && (
+              <div className="space-y-4">
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full rounded-lg"
+                />
+                <div className="flex gap-2">
+                  <Button onClick={capturePhoto} className="flex-1">
+                    <Camera className="h-4 w-4 mr-2" />
+                    Capture
+                  </Button>
+                  <Button variant="outline" onClick={stopCamera}>
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {capturedImage && (
+              <div className="space-y-4">
+                <div className="flex justify-center">
+                  <img
+                    src={capturedImage}
+                    alt="Captured"
+                    className="max-w-full max-h-64 rounded-lg"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={saveProfilePhoto} className="flex-1">
+                    <Save className="h-4 w-4 mr-2" />
+                    Save Photo
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setCapturedImage(null)}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Retake
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <canvas ref={canvasRef} className="hidden" />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Password Confirmation Modal */}
       {showPasswordModal && (
