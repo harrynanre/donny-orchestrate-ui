@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { agentStore, type ActiveModel } from "@/lib/agent-store"
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile")
@@ -21,6 +22,8 @@ export default function Settings() {
   const [pendingAction, setPendingAction] = useState<{ type: 'revoke' | 'edit', keyId: string } | null>(null)
   const [newApiKey, setNewApiKey] = useState({ name: "", key: "", isVerified: false })
   const [testingKey, setTestingKey] = useState(false)
+  const [activeModels, setActiveModels] = useState<ActiveModel[]>([])
+  const [newModel, setNewModel] = useState({ name: "", provider: "OpenAI", key: "", isVerified: false })
   
   const [profileData, setProfileData] = useState({
     name: "John Doe",
@@ -71,6 +74,14 @@ export default function Settings() {
 
   useEffect(() => {
     setInitialWorkspaceData(workspaceData)
+  }, [])
+
+  // Load active models and subscribe to changes
+  useEffect(() => {
+    const loadModels = () => setActiveModels(agentStore.getActiveModels())
+    loadModels()
+    const unsubscribe = agentStore.onModelsChange(loadModels)
+    return unsubscribe
   }, [])
 
   const [showPassword, setShowPassword] = useState(false)
@@ -222,7 +233,7 @@ export default function Settings() {
 
       {/* Settings Tabs */}
       <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <User className="h-4 w-4" />
             Profile
@@ -234,6 +245,10 @@ export default function Settings() {
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             Notifications
+          </TabsTrigger>
+          <TabsTrigger value="models" className="flex items-center gap-2">
+            <Cpu className="h-4 w-4" />
+            AI Models
           </TabsTrigger>
           <TabsTrigger value="api" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
@@ -545,6 +560,143 @@ export default function Settings() {
                   <Save className="h-4 w-4 mr-2" />
                   Save Preferences
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Active AI Models Tab */}
+        <TabsContent value="models" className="space-y-6">
+          <Card className="card-enterprise">
+            <CardHeader>
+              <CardTitle>Active AI Models</CardTitle>
+              <CardDescription>
+                Manage your AI model API keys and credentials. Only active models will be available for agent creation.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Add New Model */}
+              <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
+                <h4 className="font-medium">Add New AI Model</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="modelName">Model Name</Label>
+                    <Input
+                      id="modelName"
+                      placeholder="e.g., GPT-4"
+                      value={newModel.name}
+                      onChange={(e) => setNewModel(prev => ({ ...prev, name: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="modelProvider">Provider</Label>
+                    <Select value={newModel.provider} onValueChange={(value) => setNewModel(prev => ({ ...prev, provider: value }))}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OpenAI">OpenAI</SelectItem>
+                        <SelectItem value="Anthropic">Anthropic</SelectItem>
+                        <SelectItem value="Google">Google</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="modelKey">API Key</Label>
+                    <Input
+                      id="modelKey"
+                      type="password"
+                      placeholder="Enter API key"
+                      value={newModel.key}
+                      onChange={(e) => setNewModel(prev => ({ ...prev, key: e.target.value, isVerified: false }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => {
+                      setTestingKey(true)
+                      setTimeout(() => {
+                        setNewModel(prev => ({ ...prev, isVerified: true }))
+                        setTestingKey(false)
+                      }, 2000)
+                    }}
+                    disabled={!newModel.key || testingKey}
+                    variant="outline"
+                  >
+                    {testingKey ? "Testing..." : "Test"}
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      if (newModel.isVerified && newModel.name && newModel.key) {
+                        agentStore.addActiveModel({
+                          name: newModel.name,
+                          provider: newModel.provider,
+                          key: newModel.key,
+                          status: "active"
+                        })
+                        setNewModel({ name: "", provider: "OpenAI", key: "", isVerified: false })
+                        toast({
+                          title: "AI Model Added",
+                          description: `${newModel.name} is now available for agent creation.`,
+                        })
+                      }
+                    }}
+                    disabled={!newModel.isVerified}
+                    className="button-primary"
+                  >
+                    Add Model
+                  </Button>
+                  {newModel.isVerified && (
+                    <Badge className="status-pill status-success">
+                      Verified ✓
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Active Models List */}
+              <div className="space-y-4">
+                <h4 className="font-medium">Active Models</h4>
+                {activeModels.map((model) => (
+                  <div key={model.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3">
+                        <div className="font-medium">{model.name}</div>
+                        <Badge variant="outline" className="text-xs">{model.provider}</Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">{model.key.slice(0, 10)}...{model.key.slice(-4)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        Added: {model.created} • Last used: {model.lastUsed}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className="status-pill status-success">
+                        {model.status}
+                      </Badge>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "Feature Coming Soon",
+                            description: "Model editing will be available in a future update.",
+                          })
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                {activeModels.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Cpu className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No active AI models configured</p>
+                    <p className="text-sm">Add your first model to start creating agents</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

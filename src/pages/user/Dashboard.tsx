@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -11,13 +11,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
+import { agentStore, type Agent } from "@/lib/agent-store"
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [selectedAgent, setSelectedAgent] = useState("content-creator")
+  const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
+  const [selectedAgent, setSelectedAgent] = useState("")
   const [chatMessage, setChatMessage] = useState("")
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false)
   const [showStartTaskModal, setShowStartTaskModal] = useState(false)
+
+  // Load agents and subscribe to live updates
+  useEffect(() => {
+    const loadAgents = () => {
+      const agents = agentStore.getAgents()
+      setAvailableAgents(agents)
+      if (!selectedAgent && agents.length > 0) {
+        setSelectedAgent(agents[0].id)
+      }
+    }
+
+    loadAgents()
+    const unsubscribe = agentStore.onAgentsChange(loadAgents)
+    return unsubscribe
+  }, [selectedAgent])
 
   const handleQuickAction = (actionId: string) => {
     switch (actionId) {
@@ -35,36 +52,8 @@ export default function Dashboard() {
     { id: 'start-task', label: 'Start Task', icon: CheckSquare },
   ]
 
-  const availableAgents = [
-    { 
-      id: "content-creator", 
-      name: "Content Creator", 
-      tagline: "Generate blog posts and social media content",
-      avatar: "/placeholder-avatar.jpg",
-      status: "running"
-    },
-    { 
-      id: "data-analyzer", 
-      name: "Data Analyzer", 
-      tagline: "Process and analyze customer data for insights",
-      avatar: "/placeholder-avatar.jpg",
-      status: "idle"
-    },
-    { 
-      id: "customer-support", 
-      name: "Customer Support", 
-      tagline: "Handle customer inquiries and support tickets",
-      avatar: "/placeholder-avatar.jpg",
-      status: "running"
-    },
-    { 
-      id: "social-media-manager", 
-      name: "Social Media Manager", 
-      tagline: "Schedule and manage social media posts",
-      avatar: "/placeholder-avatar.jpg",
-      status: "paused"
-    },
-  ]
+  // Helper to get selected agent details
+  const getSelectedAgent = () => availableAgents.find(a => a.id === selectedAgent)
 
   const agentLogs = [
     { timestamp: "14:23:45", level: "info", message: "Starting content generation task..." },
@@ -122,19 +111,27 @@ export default function Dashboard() {
           <h2 className="text-2xl font-semibold">Live Preview</h2>
           <Select value={selectedAgent} onValueChange={setSelectedAgent}>
             <SelectTrigger className="w-64 focus:ring-2 focus:ring-ring focus:ring-offset-2">
-              <SelectValue />
+              <SelectValue>
+                {getSelectedAgent() ? (
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-6 w-6 flex-shrink-0">
+                      <AvatarFallback className="text-xs">{getSelectedAgent()?.name[0]}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-medium">{getSelectedAgent()?.name}</span>
+                  </div>
+                ) : "Select Agent"}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent className="bg-popover border border-border">
               {availableAgents.map((agent) => (
                 <SelectItem key={agent.id} value={agent.id}>
                   <div className="flex items-center gap-3 agent-selector-content">
                     <Avatar className="h-6 w-6 flex-shrink-0">
-                      <AvatarImage src={agent.avatar} alt={agent.name} />
                       <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col min-w-0 flex-1">
                       <span className="font-medium agent-selector-text">{agent.name}</span>
-                      <span className="text-xs text-muted-foreground agent-selector-text">{agent.tagline}</span>
+                      <span className="text-xs text-muted-foreground agent-selector-text">{agent.goal}</span>
                     </div>
                   </div>
                 </SelectItem>
@@ -194,60 +191,25 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2 px-3 py-2 bg-background rounded border border-border flex-1">
                       <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm text-muted-foreground truncate">
-                        {availableAgents.find(a => a.id === selectedAgent)?.name === "Content Creator" 
+                        {getSelectedAgent()?.name === "Content Creator" 
                           ? "https://blog.example.com/ai-automation-guide"
-                          : availableAgents.find(a => a.id === selectedAgent)?.name === "Data Analyzer"
+                          : getSelectedAgent()?.name === "Data Analyzer"
                           ? "https://analytics.company.com/dashboard" 
                           : "https://support.helpdesk.com/tickets"
                         }
                       </span>
                     </div>
                     
-                    {/* 25% AI Selector Section */}
-                    <div className="flex items-center gap-2 min-w-0" style={{width: '25%'}}>
-                      <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-                        <SelectTrigger className="h-10 focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background border-border">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <Avatar className="h-6 w-6 flex-shrink-0">
-                              <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
-                              <AvatarFallback className="text-xs">
-                                {availableAgents.find(a => a.id === selectedAgent)?.name[0]}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm font-medium truncate">
-                              {availableAgents.find(a => a.id === selectedAgent)?.name}
-                            </span>
-                          </div>
-                        </SelectTrigger>
-                        <SelectContent className="bg-popover border border-border z-50">
-                          {availableAgents.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id} className="focus:bg-accent focus:text-accent-foreground">
-                              <div className="flex items-center gap-3 py-1">
-                                <Avatar className="h-8 w-8 flex-shrink-0">
-                                  <AvatarImage src={agent.avatar} alt={agent.name} />
-                                  <AvatarFallback className="text-xs font-medium">
-                                    {agent.name[0]}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="font-medium text-sm">{agent.name}</span>
-                                  <span className="text-xs text-muted-foreground">{agent.tagline}</span>
-                                </div>
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-xs ${
-                                    agent.status === 'active' ? 'border-green-200 text-green-700 bg-green-50' :
-                                    agent.status === 'running' ? 'border-blue-200 text-blue-700 bg-blue-50' :
-                                    'border-gray-200 text-gray-600 bg-gray-50'
-                                  }`}
-                                >
-                                  {agent.status}
-                                </Badge>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {/* 25% AI Name Display - Shows only selected agent name */}
+                    <div className="flex items-center gap-2 px-3 py-2 bg-background rounded border border-border min-w-0" style={{width: '25%'}}>
+                      <Avatar className="h-6 w-6 flex-shrink-0">
+                        <AvatarFallback className="text-xs">
+                          {getSelectedAgent()?.name[0] || "AI"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium truncate">
+                        {getSelectedAgent()?.name || "Select Agent"}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -271,17 +233,16 @@ export default function Dashboard() {
                     <div className="p-3 border-b border-border">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
-                          <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
                           <AvatarFallback className="text-xs">
-                            {availableAgents.find(a => a.id === selectedAgent)?.name[0]}
+                            {getSelectedAgent()?.name[0] || "AI"}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0 flex-1">
                           <div className="text-sm font-medium truncate">
-                            {availableAgents.find(a => a.id === selectedAgent)?.name}
+                            {getSelectedAgent()?.name || "Select Agent"}
                           </div>
                           <div className="text-xs text-muted-foreground capitalize">
-                            {availableAgents.find(a => a.id === selectedAgent)?.status}
+                            {getSelectedAgent()?.status || "idle"}
                           </div>
                         </div>
                       </div>
@@ -294,7 +255,6 @@ export default function Dashboard() {
                           <div key={index} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : ""}`}>
                             {msg.role === "agent" && (
                               <Avatar className="h-6 w-6 flex-shrink-0">
-                                <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
                                 <AvatarFallback className="text-xs">AI</AvatarFallback>
                               </Avatar>
                             )}

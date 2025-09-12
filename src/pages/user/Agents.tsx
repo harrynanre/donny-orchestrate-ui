@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Search, Filter, Bot, Play, Pause, Settings, MoreVertical, Clock, Zap, X, Cpu, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/hooks/use-toast"
+import { agentStore, type Agent } from "@/lib/agent-store"
 
 export default function Agents() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -48,52 +49,31 @@ export default function Agents() {
     schedule: "manual"
   })
 
-  const availableModels = ["GPT-4", "Claude-3", "Gemini-Pro"]
+  const [availableModels, setAvailableModels] = useState<string[]>([])
   const availableStatuses = ["running", "idle", "paused", "error"]
   const availableTools = ["Web Scraper", "Image Generator", "SEO Optimizer", "Data Processor", "Chart Generator", "Report Builder", "Ticket System", "Knowledge Base", "Email Sender", "Social API", "Image Editor", "Analytics"]
 
-  const [agents, setAgents] = useState([
-    {
-      id: "1",
-      name: "Content Creator",
-      goal: "Generate blog posts and social media content",
-      model: "GPT-4",
-      tools: ["Web Scraper", "Image Generator", "SEO Optimizer"],
-      status: "running",
-      lastRun: "2 minutes ago",
-      successRate: 95,
-    },
-    {
-      id: "2",
-      name: "Data Analyzer",
-      goal: "Process and analyze customer data for insights",
-      model: "Claude-3",
-      tools: ["Data Processor", "Chart Generator", "Report Builder"],
-      status: "idle",
-      lastRun: "1 hour ago", 
-      successRate: 98,
-    },
-    {
-      id: "3",
-      name: "Customer Support",
-      goal: "Handle customer inquiries and support tickets",
-      model: "GPT-4",
-      tools: ["Ticket System", "Knowledge Base", "Email Sender"],
-      status: "running",
-      lastRun: "30 seconds ago",
-      successRate: 87,
-    },
-    {
-      id: "4",
-      name: "Social Media Manager",
-      goal: "Schedule and manage social media posts",
-      model: "Claude-3",
-      tools: ["Social API", "Image Editor", "Analytics"],
-      status: "paused",
-      lastRun: "2 days ago",
-      successRate: 92,
-    },
-  ])
+  const [agents, setAgents] = useState<Agent[]>([])
+
+  // Load agents and models on mount and subscribe to changes
+  useEffect(() => {
+    const loadData = () => {
+      setAgents(agentStore.getAgents())
+      setAvailableModels(agentStore.getAvailableModelNames())
+    }
+
+    loadData()
+    
+    const unsubscribeAgents = agentStore.onAgentsChange(setAgents)
+    const unsubscribeModels = agentStore.onModelsChange(() => {
+      setAvailableModels(agentStore.getAvailableModelNames())
+    })
+
+    return () => {
+      unsubscribeAgents()
+      unsubscribeModels()
+    }
+  }, [])
 
   // Filter and search logic
   const filteredAgents = agents.filter(agent => {
@@ -148,29 +128,34 @@ export default function Agents() {
       return
     }
     
-    const agentId = Date.now().toString()
-    const agent = {
-      ...newAgent,
-      id: agentId,
-      lastRun: "Never",
-      successRate: 0,
-      status: "idle" as const
+    try {
+      const agent = agentStore.addAgent({
+        name: newAgent.name,
+        goal: newAgent.goal,
+        model: newAgent.model,
+        tools: newAgent.tools as string[]
+      })
+      
+      setShowCreateAgent(false)
+      setNewAgent({
+        name: "",
+        goal: "",
+        model: availableModels[0] || "GPT-4", 
+        tools: [],
+        schedule: "manual"
+      })
+      
+      toast({
+        title: "Agent Created Successfully",
+        description: `"${agent.name}" is now ready to deploy and run tasks.`,
+      })
+    } catch (error) {
+      toast({
+        title: "Error Creating Agent",
+        description: "Failed to create agent. Please try again.",
+        variant: "destructive"
+      })
     }
-    
-    setAgents(prev => [...prev, agent])
-    setShowCreateAgent(false)
-    setNewAgent({
-      name: "",
-      goal: "",
-      model: "GPT-4", 
-      tools: [],
-      schedule: "manual"
-    })
-    
-    toast({
-      title: "Agent Created Successfully",
-      description: `"${agent.name}" is now ready to deploy and run tasks.`,
-    })
   }
 
   const toggleTool = (tool: string) => {
