@@ -11,7 +11,20 @@ import { Badge } from "@/components/ui/badge"
 
 export function HelpSystem() {
   const [question, setQuestion] = useState("")
-  const [position, setPosition] = useState({ x: 20, y: 300 })
+  const [position, setPosition] = useState(() => {
+    // Load position from localStorage or use default
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('help-assistant-position')
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch {
+          // Fall back to default if parsing fails
+        }
+      }
+    }
+    return { x: 20, y: 300 }
+  })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -59,6 +72,10 @@ export function HelpSystem() {
 
   const handleMouseUp = () => {
     setIsDragging(false)
+    // Save position to localStorage when dragging ends
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('help-assistant-position', JSON.stringify(position))
+    }
   }
 
   useEffect(() => {
