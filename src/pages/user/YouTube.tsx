@@ -85,6 +85,95 @@ export default function YouTube() {
     }
   }
 
+  // Piped instances and helpers
+  const pipedInstances = [
+    'https://piped.video',
+    'https://piped.lunar.icu',
+    'https://piped.privacy.com.de',
+    'https://piped.darkness.services',
+    'https://piped.smnz.de'
+  ] as const
+
+  const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit & { timeout?: number } = {}) => {
+    const { timeout = 8000, ...rest } = init
+    const controller = new AbortController()
+    const id = setTimeout(() => controller.abort(), timeout)
+    try {
+      const res = await fetch(input, { ...rest, signal: controller.signal })
+      return res
+    } finally {
+      clearTimeout(id)
+    }
+  }
+
+  const getPipedStreams = async (videoId: string): Promise<{ data: any; base: string }> => {
+    let lastError: any
+    for (const base of pipedInstances) {
+      try {
+        const url = `${base}/api/v1/streams/${videoId}`
+        const res = await fetchWithTimeout(url, { headers: { accept: 'application/json' }, timeout: 9000 })
+        if (res.ok) {
+          const data = await res.json()
+          if (data?.audioStreams?.length) return { data, base }
+        }
+      } catch (e) {
+        lastError = e
+      }
+    }
+    throw lastError || new Error('No Piped instance available')
+  }
+
+  const getPipedVideoMeta = async (videoId: string) => {
+    try {
+      const { data } = await getPipedStreams(videoId)
+      const seconds: number | undefined = typeof data.duration === 'number' ? data.duration : undefined
+      return { durationSeconds: seconds, title: data.title as string | undefined, uploader: data.uploader as string | undefined }
+    } catch {
+      return { durationSeconds: undefined, title: undefined, uploader: undefined }
+    }
+  }
+
+  const resolveAudioStream = async (videoId: string): Promise<{ audioUrl: string; durationSeconds?: number }> => {
+    const { data } = await getPipedStreams(videoId)
+    const preferred = (data.audioStreams || []).find((s: any) => (s.mimeType || '').includes('audio/mp4')) || data.audioStreams?.[0]
+    if (!preferred?.url) throw new Error('No audio stream found')
+    const audioUrl: string = preferred.url
+    const durationSeconds: number | undefined = typeof data.duration === 'number' ? data.duration : undefined
+    return { audioUrl, durationSeconds }
+  }
+
+  const verifyAudioUrl = (url: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      try {
+        const a = new Audio()
+        a.preload = 'metadata'
+        a.src = url
+        const timer = setTimeout(() => { cleanup(); resolve(false) }, 12000)
+        const cleanup = () => {
+          clearTimeout(timer)
+          a.onloadedmetadata = null
+          a.onerror = null
+        }
+        a.onloadedmetadata = () => {
+          const ok = !!a.duration && !isNaN(a.duration) && a.duration > 0
+          cleanup()
+          resolve(ok)
+        }
+        a.onerror = () => { cleanup(); resolve(false) }
+      } catch {
+        resolve(false)
+      }
+    })
+  }
+
+  const formatDuration = (seconds?: number) => {
+    if (seconds == null || !isFinite(seconds)) return 'Unknown'
+    const h = Math.floor(seconds / 3600)
+    const m = Math.floor((seconds % 3600) / 60)
+    const s = Math.floor(seconds % 60)
+    return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!youtubeUrl.trim()) return
@@ -110,6 +199,19 @@ export default function YouTube() {
     try {
       const info = await fetchVideoInfo(videoId)
       setVideoInfo(info)
+
+      // Enrich with duration/title via Piped
+      try {
+        const meta = await getPipedVideoMeta(videoId)
+        if (meta.durationSeconds || meta.title || meta.uploader) {
+          setVideoInfo(prev => prev ? ({
+            ...prev,
+            duration: meta.durationSeconds ? formatDuration(meta.durationSeconds) : prev.duration,
+            title: meta.title || prev.title,
+            channelName: meta.uploader || prev.channelName,
+          }) : prev)
+        }
+      } catch {}
       
       toast({
         title: "Video Loaded",
@@ -130,15 +232,19 @@ export default function YouTube() {
   const handleExtractAudio = async () => {
     if (!videoInfo) return
 
-    setProcessingState(prev => ({ ...prev, isProcessing: true }))
+    setProcessingState(prev => ({ ...prev, isProcessing: true, error: undefined }))
 
     try {
-      // Simulate audio extraction process
-      await new Promise(resolve => setTimeout(resolve, 3000))
-      
-      // Generate a mock audio URL (in real implementation, this would be the extracted audio)
-      const audioUrl = `https://audio-storage.example.com/${videoInfo.videoId}.mp3`
-      
+      const { audioUrl, durationSeconds } = await resolveAudioStream(videoInfo.videoId)
+
+      // Verify authenticity by loading metadata
+      const ok = await verifyAudioUrl(audioUrl)
+      if (!ok) throw new Error('Audio verification failed')
+
+      if (durationSeconds && (videoInfo.duration === 'Loading...' || videoInfo.duration === 'Unknown')) {
+        setVideoInfo(prev => prev ? ({ ...prev, duration: formatDuration(durationSeconds) }) : prev)
+      }
+
       setProcessingState(prev => ({ 
         ...prev, 
         audioExtracted: true, 
@@ -147,18 +253,21 @@ export default function YouTube() {
       }))
 
       toast({
-        title: "Audio Extracted",
-        description: "Audio has been successfully extracted from the video"
+        title: "Audio Ready",
+        description: "Verified audio stream extracted successfully"
       })
     } catch (error) {
+      console.error('Audio extraction error', error)
       setProcessingState(prev => ({ 
         ...prev, 
         isProcessing: false,
-        error: "Failed to extract audio" 
+        audioExtracted: false,
+        audioUrl: undefined,
+        error: "Failed to extract/verify audio" 
       }))
       toast({
-        title: "Extraction Failed",
-        description: "Failed to extract audio from video",
+        title: "Audio Not Ready",
+        description: "Failed to extract or verify audio stream",
         variant: "destructive"
       })
     }
@@ -298,13 +407,18 @@ Video Details:
   }
 
   const downloadAudio = () => {
-    if (!processingState.audioUrl) return
-    
-    // In a real implementation, this would trigger the audio download
-    toast({
-      title: "Audio Download",
-      description: "Audio download would start here"
-    })
+    if (!processingState.audioUrl) {
+      toast({ title: "No audio", description: "Extract audio first", variant: "destructive" })
+      return
+    }
+    // Trigger native download without fetching (works around CORS)
+    const a = document.createElement('a')
+    a.href = processingState.audioUrl
+    a.download = `${(videoInfo?.title || 'youtube-audio').replace(/[^a-z0-9]/gi, '_')}.mp3`
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   return (
