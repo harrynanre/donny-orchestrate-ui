@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Terminal as TerminalIcon, Play, Settings, Zap, Save, CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { Terminal as TerminalIcon, Play, Settings, Zap, Save, CheckCircle, XCircle, Loader2, Monitor, X, Maximize2, Minimize2, Globe } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -28,33 +28,44 @@ interface ApiKeyData {
 
 interface ConsoleMessage {
   timestamp: string
-  type: "info" | "error" | "warning" | "system" | "user" | "assistant"
+  type: "info" | "error" | "warning" | "system" | "user" | "assistant" | "terminal"
   message: string
+}
+
+interface FloatingWindow {
+  id: string
+  type: 'browser' | 'console' | 'terminal'
+  title: string
+  url?: string
+  position: { x: number; y: number }
+  size: { width: number; height: number }
+  isMinimized: boolean
+  isMaximized: boolean
+  zIndex: number
 }
 
 export default function Terminal() {
   const [provider, setProvider] = useState("none")
   const [workspace, setWorkspace] = useState("default")
   const [command, setCommand] = useState("")
+  const [terminalCommand, setTerminalCommand] = useState("")
+  const [terminalHistory, setTerminalHistory] = useState<ConsoleMessage[]>([
+    { timestamp: new Date().toLocaleTimeString(), type: "terminal", message: "Terminal ready. Type 'help' for available commands." }
+  ])
   const [showClaudeSettings, setShowClaudeSettings] = useState(false)
-  const [showChatGPTSettings, setShowChatGPTSettings] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([])
   const [selectedApiKey, setSelectedApiKey] = useState<string>("")
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [windows, setWindows] = useState<FloatingWindow[]>([])
+  const [highestZIndex, setHighestZIndex] = useState(1000)
   const outputRef = useRef<HTMLDivElement>(null)
+  const terminalRef = useRef<HTMLDivElement>(null)
   
   const [claudeCredentials, setClaudeCredentials] = useState({
     email: "",
     password: "",
     sessionCookie: "",
-  })
-
-  const [chatGPTCredentials, setChatGPTCredentials] = useState({
-    email: "",
-    password: "",
-    sessionToken: "",
-    accessToken: "",
   })
 
   const [consoleOutput, setConsoleOutput] = useState<ConsoleMessage[]>([
@@ -82,9 +93,21 @@ export default function Terminal() {
     }
   }, [consoleOutput])
 
+  // Auto-scroll terminal output
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight
+    }
+  }, [terminalHistory])
+
   const addConsoleMessage = (type: ConsoleMessage['type'], message: string) => {
     const timestamp = new Date().toLocaleTimeString()
     setConsoleOutput(prev => [...prev, { timestamp, type, message }])
+  }
+
+  const addTerminalMessage = (type: ConsoleMessage['type'], message: string) => {
+    const timestamp = new Date().toLocaleTimeString()
+    setTerminalHistory(prev => [...prev, { timestamp, type, message }])
   }
 
   const getAvailableApiKeys = () => {
@@ -200,14 +223,10 @@ export default function Terminal() {
             description: `Connected to ${provider.toUpperCase()} API`,
           })
         }
-      } else if (provider === "claude-browser") {
+        } else if (provider === "claude-browser") {
         // Browser connection logic would go here
         setIsConnected(true)
         addConsoleMessage("warning", "Claude browser connection simulated")
-      } else if (provider === "chatgpt-browser") {
-        // ChatGPT browser connection logic would go here
-        setIsConnected(true)
-        addConsoleMessage("warning", "ChatGPT browser connection simulated")
       }
     } catch (error) {
       addConsoleMessage("error", `Connection failed: ${error}`)
@@ -242,8 +261,8 @@ export default function Terminal() {
         response = await callOpenAI(userMessage, keyData.key)
       } else if (provider === "claude-api" && keyData) {
         response = await callClaude(userMessage, keyData.key)
-      } else if (provider === "chatgpt-browser") {
-        response = "ChatGPT browser mode - simulated response"
+      } else if (provider === "claude-browser") {
+        response = "Claude browser mode - simulated response"
       } else {
         response = "Provider not properly configured"
       }
@@ -256,13 +275,6 @@ export default function Terminal() {
     }
   }
 
-  const handleSaveChatGPTSettings = () => {
-    toast({
-      title: "ChatGPT Settings Saved",
-      description: "ChatGPT browser connection settings have been saved.",
-    })
-    setShowChatGPTSettings(false)
-  }
 
   const handleSaveClaudeSettings = () => {
     toast({
@@ -272,6 +284,95 @@ export default function Terminal() {
     setShowClaudeSettings(false)
   }
 
+  // Window management functions
+  const createWindow = (type: FloatingWindow['type'], title: string, url?: string) => {
+    const newWindow: FloatingWindow = {
+      id: Math.random().toString(36).substr(2, 9),
+      type,
+      title,
+      url,
+      position: { x: 100 + windows.length * 30, y: 100 + windows.length * 30 },
+      size: { width: 800, height: 600 },
+      isMinimized: false,
+      isMaximized: false,
+      zIndex: highestZIndex + 1
+    }
+    setWindows(prev => [...prev, newWindow])
+    setHighestZIndex(prev => prev + 1)
+  }
+
+  const closeWindow = (id: string) => {
+    setWindows(prev => prev.filter(w => w.id !== id))
+  }
+
+  const minimizeWindow = (id: string) => {
+    setWindows(prev => prev.map(w => 
+      w.id === id ? { ...w, isMinimized: !w.isMinimized } : w
+    ))
+  }
+
+  const maximizeWindow = (id: string) => {
+    setWindows(prev => prev.map(w => 
+      w.id === id ? { 
+        ...w, 
+        isMaximized: !w.isMaximized,
+        position: w.isMaximized ? w.position : { x: 0, y: 0 },
+        size: w.isMaximized ? w.size : { width: window.innerWidth, height: window.innerHeight }
+      } : w
+    ))
+  }
+
+  const bringToFront = (id: string) => {
+    const newZIndex = highestZIndex + 1
+    setWindows(prev => prev.map(w => 
+      w.id === id ? { ...w, zIndex: newZIndex } : w
+    ))
+    setHighestZIndex(newZIndex)
+  }
+
+  // Terminal command handling
+  const handleTerminalCommand = () => {
+    if (!terminalCommand.trim()) return
+
+    const cmd = terminalCommand.trim()
+    setTerminalCommand("")
+    addTerminalMessage("user", `$ ${cmd}`)
+
+    // Process terminal commands
+    switch (cmd.toLowerCase()) {
+      case "help":
+        addTerminalMessage("terminal", "Available commands:\n  help - Show this help\n  clear - Clear terminal\n  browser [url] - Open browser window\n  console - Open console window\n  ls - List files\n  pwd - Print working directory\n  date - Show current date\n  whoami - Show current user")
+        break
+      case "clear":
+        setTerminalHistory([])
+        break
+      case "ls":
+        addTerminalMessage("terminal", "src/  public/  package.json  README.md  tailwind.config.ts")
+        break
+      case "pwd":
+        addTerminalMessage("terminal", "/home/donny-hub")
+        break
+      case "date":
+        addTerminalMessage("terminal", new Date().toString())
+        break
+      case "whoami":
+        addTerminalMessage("terminal", "donny-hub-user")
+        break
+      case "console":
+        createWindow('console', 'Debug Console')
+        addTerminalMessage("terminal", "Console window opened")
+        break
+      default:
+        if (cmd.startsWith("browser")) {
+          const url = cmd.split(" ")[1] || "https://google.com"
+          createWindow('browser', `Browser - ${url}`, url)
+          addTerminalMessage("terminal", `Browser opened: ${url}`)
+        } else {
+          addTerminalMessage("terminal", `Command not found: ${cmd}`)
+        }
+    }
+  }
+
   const handleProviderChange = (value: string) => {
     setProvider(value)
     setIsConnected(false)
@@ -279,8 +380,6 @@ export default function Terminal() {
     
     if (value === "claude-browser") {
       setShowClaudeSettings(true)
-    } else if (value === "chatgpt-browser") {
-      setShowChatGPTSettings(true)
     }
     
     addConsoleMessage("system", `Provider changed to: ${value}`)
@@ -309,8 +408,6 @@ export default function Terminal() {
           </Badge>
       case "claude-browser":
         return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Browser Mode</Badge>
-      case "chatgpt-browser":
-        return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Browser Mode</Badge>
       default:
         return <Badge variant="secondary">No Provider</Badge>
     }
@@ -351,7 +448,6 @@ export default function Terminal() {
                     <SelectItem value="openai">OpenAI API</SelectItem>
                     <SelectItem value="claude-api">Claude API</SelectItem>
                     <SelectItem value="claude-browser">Claude via Browser</SelectItem>
-                    <SelectItem value="chatgpt-browser">ChatGPT via Browser</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -401,22 +497,39 @@ export default function Terminal() {
               <Button 
                 className="w-full button-primary" 
                 onClick={handleConnect}
-                disabled={isLoading || (provider !== "none" && provider !== "claude-browser" && provider !== "chatgpt-browser" && !selectedApiKey)}
+                disabled={isLoading || (provider !== "none" && provider !== "claude-browser" && !selectedApiKey)}
               >
                 <Zap className="h-4 w-4 mr-2" />
                 {isLoading ? "Connecting..." : isConnected ? "Reconnect" : "Connect"}
               </Button>
+
+              <div className="flex gap-2">
+                <Button 
+                  className="flex-1 button-secondary"
+                  onClick={() => createWindow('browser', 'Browser', 'https://google.com')}
+                >
+                  <Globe className="h-4 w-4 mr-2" />
+                  Browser
+                </Button>
+                <Button 
+                  className="flex-1 button-secondary"
+                  onClick={() => createWindow('console', 'Console')}
+                >
+                  <Monitor className="h-4 w-4 mr-2" />
+                  Console
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Console */}
-        <div className="lg:col-span-3">
+        {/* AI Console */}
+        <div className="lg:col-span-2">
           <Card className="card-enterprise h-[600px] flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TerminalIcon className="h-5 w-5" />
-                Console
+                AI Console
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
@@ -481,7 +594,162 @@ export default function Terminal() {
             </CardContent>
           </Card>
         </div>
+
+        {/* System Terminal */}
+        <div className="lg:col-span-1">
+          <Card className="card-enterprise h-[600px] flex flex-col">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TerminalIcon className="h-5 w-5" />
+                Terminal
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col">
+              {/* Terminal Output */}
+              <div 
+                ref={terminalRef}
+                className="flex-1 bg-black dark:bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-y-auto mb-4"
+              >
+                {terminalHistory.map((line, index) => (
+                  <div key={index} className="mb-1">
+                    <span className={`${
+                      line.type === "user" ? "text-cyan-400" :
+                      line.type === "terminal" ? "text-green-400" :
+                      "text-gray-300"
+                    }`}>
+                      {line.message}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-green-400">$</span>
+                  <span className="text-white animate-pulse">_</span>
+                </div>
+              </div>
+
+              {/* Terminal Input */}
+              <div className="flex gap-2">
+                <Input
+                  value={terminalCommand}
+                  onChange={(e) => setTerminalCommand(e.target.value)}
+                  placeholder="Type 'help' for commands..."
+                  className="flex-1 font-mono"
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      handleTerminalCommand()
+                    }
+                  }}
+                />
+                <Button 
+                  className="button-primary"
+                  onClick={handleTerminalCommand}
+                  disabled={!terminalCommand.trim()}
+                >
+                  <Play className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Floating Windows */}
+      {windows.map((window) => (
+        <div
+          key={window.id}
+          className={`fixed bg-background border border-border rounded-lg shadow-2xl ${
+            window.isMinimized ? 'w-64 h-12' : ''
+          } ${window.isMaximized ? 'top-0 left-0 w-full h-full' : ''}`}
+          style={{
+            left: window.isMaximized ? 0 : window.position.x,
+            top: window.isMaximized ? 0 : window.position.y,
+            width: window.isMaximized ? '100%' : window.isMinimized ? '256px' : window.size.width,
+            height: window.isMaximized ? '100%' : window.isMinimized ? '48px' : window.size.height,
+            zIndex: window.zIndex
+          }}
+          onClick={() => bringToFront(window.id)}
+        >
+          {/* Window Header */}
+          <div className="flex items-center justify-between p-2 bg-muted border-b border-border cursor-move">
+            <div className="flex items-center gap-2">
+              {window.type === 'browser' && <Globe className="h-4 w-4" />}
+              {window.type === 'console' && <Monitor className="h-4 w-4" />}
+              {window.type === 'terminal' && <TerminalIcon className="h-4 w-4" />}
+              <span className="text-sm font-medium">{window.title}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  minimizeWindow(window.id)
+                }}
+              >
+                <Minimize2 className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  maximizeWindow(window.id)
+                }}
+              >
+                <Maximize2 className="h-3 w-3" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  closeWindow(window.id)
+                }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Window Content */}
+          {!window.isMinimized && (
+            <div className="flex-1 p-4 overflow-hidden">
+              {window.type === 'browser' && (
+                <div className="h-full">
+                  <div className="mb-2">
+                    <Input 
+                      defaultValue={window.url} 
+                      className="text-xs"
+                      readOnly 
+                    />
+                  </div>
+                  <iframe 
+                    src={window.url} 
+                    className="w-full h-[calc(100%-2rem)] border border-border rounded"
+                    title={window.title}
+                  />
+                </div>
+              )}
+              {window.type === 'console' && (
+                <div className="h-full bg-black rounded p-2 font-mono text-sm text-green-400 overflow-y-auto">
+                  <div>Console Debug Window</div>
+                  <div className="text-yellow-400">No errors detected</div>
+                  <div className="text-blue-400">Application running normally</div>
+                </div>
+              )}
+              {window.type === 'terminal' && (
+                <div className="h-full bg-black rounded p-2 font-mono text-sm text-green-400 overflow-y-auto">
+                  <div>$ Terminal Window</div>
+                  <div>Type commands here...</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
 
       {/* Claude Browser Settings Sheet */}
       <Sheet open={showClaudeSettings} onOpenChange={setShowClaudeSettings}>
@@ -558,94 +826,6 @@ export default function Terminal() {
         </SheetContent>
       </Sheet>
 
-      {/* ChatGPT Browser Settings Sheet */}
-      <Sheet open={showChatGPTSettings} onOpenChange={setShowChatGPTSettings}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>ChatGPT Browser Connection</SheetTitle>
-            <SheetDescription>
-              Configure browser-based ChatGPT connection
-            </SheetDescription>
-          </SheetHeader>
-          
-          <div className="space-y-6 mt-6">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="chatgptEmail">Email</Label>
-                <Input
-                  id="chatgptEmail"
-                  type="email"
-                  value={chatGPTCredentials.email}
-                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="your@email.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="chatgptPassword">Password</Label>
-                <Input
-                  id="chatgptPassword"
-                  type="password"
-                  value={chatGPTCredentials.password}
-                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, password: e.target.value }))}
-                  placeholder="••••••••"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="sessionToken">Session Token</Label>
-                <Textarea
-                  id="sessionToken"
-                  value={chatGPTCredentials.sessionToken}
-                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, sessionToken: e.target.value }))}
-                  placeholder="Paste session token from browser..."
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Extract from browser cookies after logging in
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="accessToken">Access Token</Label>
-                <Textarea
-                  id="accessToken"
-                  value={chatGPTCredentials.accessToken}
-                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, accessToken: e.target.value }))}
-                  placeholder="Paste access token here..."
-                  rows={3}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Optional: Extract from browser network requests
-                </p>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <div className="text-sm">
-                <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">ChatGPT Browser Integration</p>
-                <p className="text-blue-700 dark:text-blue-300">
-                  Connect to ChatGPT web interface for enhanced features and conversation continuity.
-                </p>
-              </div>
-            </div>
-
-            <Button className="w-full" variant="outline" disabled>
-              Test Connection (UI-only)
-            </Button>
-            
-            <Button 
-              className="w-full button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2" 
-              onClick={handleSaveChatGPTSettings}
-            >
-              <Save className="h-4 w-4 mr-2" />
-              Save / Submit
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }
