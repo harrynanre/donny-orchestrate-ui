@@ -685,6 +685,19 @@ export default function Settings() {
     }
   }
 
+  const getValidationIndicator = (keyData: ApiKeyData) => {
+    if (keyData.isTesting) {
+      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Testing</Badge>
+    }
+    if (keyData.isValid) {
+      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"><CheckCircle className="h-3 w-3 mr-1" />Valid</Badge>
+    }
+    if (keyData.key && keyData.key.length > 10 && !keyData.isTesting) {
+      return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"><XCircle className="h-3 w-3 mr-1" />Invalid</Badge>
+    }
+    return null
+  }
+
   const getProviderUrl = (provider: string) => {
     switch (provider.toLowerCase()) {
       case 'openai': return 'https://api.openai.com/v1/models'
@@ -1072,6 +1085,7 @@ export default function Settings() {
               <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Add New AI Model</h4>
+                  {getValidationIndicator(newModel)}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1212,6 +1226,7 @@ export default function Settings() {
               <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Add New API Key</h4>
+                  {getValidationIndicator(newApiKey)}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
