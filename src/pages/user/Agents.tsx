@@ -302,7 +302,12 @@ export default function Agents() {
       
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="p-4 border-l-4 border-l-primary">
+        <Card 
+          className={`p-4 border-l-4 border-l-primary cursor-pointer transition-all hover:shadow-md ${
+            filters.status.length === 0 ? 'ring-2 ring-primary bg-primary/5' : ''
+          }`}
+          onClick={() => setFilters(prev => ({ ...prev, status: [] }))}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Agents</p>
