@@ -1,9 +1,10 @@
 {
-  "name": "Donny V5 UI Dev Container",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+  "name": "Donny V5 UI Dev Container (YOLO Inside)",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "features": {
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
@@ -12,17 +13,26 @@
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss"
       ]
-    },
-    "claude": {
-      "dangerouslyAllowBrowserAutomation": false,
-      "dangerouslyAllowPromptBypass": false
     }
   },
   "forwardPorts": [5000, 5055, 5056],
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
+  "postStartCommand": "bash .devcontainer/postStart.sh",
   "remoteUser": "node",
-  "mounts": [
-    "source=${localWorkspaceFolder}/.claude,target=/workspace/.claude,type=bind,consistency=cached"
+  "mounts": [],
+  "runArgs": [
+    "--name", "donny-v5-ui-devcontainer",
+    "--memory", "2g",
+    "--cpus", "2",
+    "--pids-limit", "200",
+    "--cap-drop=ALL",
+    "--cap-add=CHOWN",
+    "--cap-add=SETUID",
+    "--cap-add=SETGID",
+    "--security-opt", "no-new-privileges"
   ],
-  "runArgs": ["--name", "donny-v5-ui-devcontainer"]
+  "containerEnv": {
+    "DEVCONTAINER": "true",
+    "CONTAINER_ONLY_YOLO": "true"
+  }
 }
