@@ -1,10 +1,13 @@
-import Settings from "@/pages/user/Settings"
-
 export const metadata = {
   title: "Settings - Donny Hub",
-  description: "Configure your profile, workspace, and system preferences",
+  description: "Settings page",
 }
 
 export default function SettingsPage() {
-  return <Settings />
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-4">Settings</h1>
+      <p className="text-muted-foreground">This page is under construction.</p>
+    </div>
+  )
 }

@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useRouter } from "next/navigation"
 import { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Bot, CheckSquare, Settings, FolderOpen, Terminal, Database, Youtube, Activity, Store, BarChart3, CreditCard, Search } from "lucide-react"
 
 export function CommandBar() {
   const [open, setOpen] = useState(false)
-  const navigate = useNavigate()
+  const router = useRouter()
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -48,62 +48,62 @@ export function CommandBar() {
         {
           title: "Home",
           icon: Search,
-          action: () => navigate("/user")
+          action: () => router.push("/user")
         },
         {
           title: "My Projects",
           icon: FolderOpen,
-          action: () => navigate("/user/projects")
+          action: () => router.push("/user/projects")
         },
         {
           title: "My Agents",
           icon: Bot,
-          action: () => navigate("/user/agents")
+          action: () => router.push("/user/agents")
         },
         {
           title: "Tasks",
           icon: CheckSquare,
-          action: () => navigate("/user/tasks")
+          action: () => router.push("/user/tasks")
         },
         {
           title: "Terminal",
           icon: Terminal,
-          action: () => navigate("/user/terminal")
+          action: () => router.push("/user/terminal")
         },
         {
           title: "Memory",
           icon: Database,
-          action: () => navigate("/user/memory")
+          action: () => router.push("/user/memory")
         },
         {
           title: "YouTube Processor",
           icon: Youtube,
-          action: () => navigate("/user/youtube")
+          action: () => router.push("/user/youtube")
         },
         {
           title: "Activity",
           icon: Activity,
-          action: () => navigate("/user/activity")
+          action: () => router.push("/user/activity")
         },
         {
           title: "Marketplace",
           icon: Store,
-          action: () => navigate("/user/marketplace")
+          action: () => router.push("/user/marketplace")
         },
         {
           title: "Analytics",
           icon: BarChart3,
-          action: () => navigate("/user/analytics")
+          action: () => router.push("/user/analytics")
         },
         {
           title: "Settings",
           icon: Settings,
-          action: () => navigate("/user/settings")
+          action: () => router.push("/user/settings")
         },
         {
           title: "Billing",
           icon: CreditCard,
-          action: () => navigate("/user/billing")
+          action: () => router.push("/user/billing")
         },
       ]
     },
