@@ -139,7 +139,7 @@ export default function Dashboard() {
         <Card className="card-enterprise">
           <Tabs defaultValue="logs" className="w-full">
             <div className="border-b">
-              <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0">
+            <TabsList className="h-12 w-full justify-start rounded-none bg-transparent p-0">
                 <TabsTrigger value="logs" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                   <Activity className="h-4 w-4 mr-2" />
                   Logs
@@ -147,10 +147,6 @@ export default function Dashboard() {
                 <TabsTrigger value="browser" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
                   <Eye className="h-4 w-4 mr-2" />
                   Browser
-                </TabsTrigger>
-                <TabsTrigger value="chat" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none">
-                  <MessageCircle className="h-4 w-4 mr-2" />
-                  Chat
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -188,7 +184,7 @@ export default function Dashboard() {
                 <div className="mb-4">
                   <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border border-border">
                     {/* 75% Browser URL Section */}
-                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded border border-border flex-1">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-background rounded border border-border flex-1">
                       <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm text-muted-foreground truncate">
                         {availableAgents.find(a => a.id === selectedAgent)?.name === "Content Creator" 
@@ -203,27 +199,49 @@ export default function Dashboard() {
                     {/* 25% AI Selector Section */}
                     <div className="flex items-center gap-2 min-w-0" style={{width: '25%'}}>
                       <Select value={selectedAgent} onValueChange={setSelectedAgent}>
-                        <SelectTrigger className="focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background border-border">
-                          <SelectValue placeholder="Select AI"/>
+                        <SelectTrigger className="h-10 focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background border-border">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <Avatar className="h-6 w-6 flex-shrink-0">
+                              <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
+                              <AvatarFallback className="text-xs">
+                                {availableAgents.find(a => a.id === selectedAgent)?.name[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium truncate">
+                              {availableAgents.find(a => a.id === selectedAgent)?.name}
+                            </span>
+                          </div>
                         </SelectTrigger>
                         <SelectContent className="bg-popover border border-border z-50">
                           {availableAgents.map((agent) => (
-                            <SelectItem key={agent.id} value={agent.id}>
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-5 w-5 flex-shrink-0">
-                                  <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
+                            <SelectItem key={agent.id} value={agent.id} className="focus:bg-accent focus:text-accent-foreground">
+                              <div className="flex items-center gap-3 py-1">
+                                <Avatar className="h-8 w-8 flex-shrink-0">
+                                  <AvatarImage src={agent.avatar} alt={agent.name} />
+                                  <AvatarFallback className="text-xs font-medium">
+                                    {agent.name[0]}
+                                  </AvatarFallback>
                                 </Avatar>
-                                <span className="truncate">{agent.name}</span>
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="font-medium text-sm">{agent.name}</span>
+                                  <span className="text-xs text-muted-foreground">{agent.tagline}</span>
+                                </div>
+                                <Badge 
+                                  variant="outline" 
+                                  className={`text-xs ${
+                                    agent.status === 'active' ? 'border-green-200 text-green-700 bg-green-50' :
+                                    agent.status === 'running' ? 'border-blue-200 text-blue-700 bg-blue-50' :
+                                    'border-gray-200 text-gray-600 bg-gray-50'
+                                  }`}
+                                >
+                                  {agent.status}
+                                </Badge>
                               </div>
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
-                    
-                    <Button variant="ghost" size="sm" className="px-2">
-                      <Eye className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
                 
@@ -246,6 +264,7 @@ export default function Dashboard() {
                     <div className="p-3 border-b border-border">
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6">
+                          <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
                           <AvatarFallback className="text-xs">
                             {availableAgents.find(a => a.id === selectedAgent)?.name[0]}
                           </AvatarFallback>
@@ -254,7 +273,7 @@ export default function Dashboard() {
                           <div className="text-sm font-medium truncate">
                             {availableAgents.find(a => a.id === selectedAgent)?.name}
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground capitalize">
                             {availableAgents.find(a => a.id === selectedAgent)?.status}
                           </div>
                         </div>
@@ -268,11 +287,12 @@ export default function Dashboard() {
                           <div key={index} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : ""}`}>
                             {msg.role === "agent" && (
                               <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
                                 <AvatarFallback className="text-xs">AI</AvatarFallback>
                               </Avatar>
                             )}
                             <div className={`max-w-[85%] ${msg.role === "user" ? "order-first" : ""}`}>
-                              <div className={`p-2 rounded-lg text-sm ${
+                              <div className={`p-2 rounded-lg text-xs ${
                                 msg.role === "user" 
                                   ? "bg-primary text-primary-foreground ml-auto" 
                                   : "bg-muted"
@@ -300,7 +320,7 @@ export default function Dashboard() {
                           value={chatMessage}
                           onChange={(e) => setChatMessage(e.target.value)}
                           placeholder="Chat with AI..."
-                          className="flex-1 text-sm"
+                          className="flex-1 text-xs h-8"
                           onKeyPress={(e) => {
                             if (e.key === "Enter") {
                               // Handle send message (UI-only)
@@ -308,66 +328,11 @@ export default function Dashboard() {
                             }
                           }}
                         />
-                        <Button size="sm" className="button-primary px-2">
+                        <Button size="sm" className="button-primary px-2 h-8">
                           <Send className="h-3 w-3" />
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="chat" className="mt-0" data-chat-section>
-              <div className="flex flex-col h-96">
-                <ScrollArea className="flex-1 p-6">
-                  <div className="space-y-4">
-                    {chatHistory.map((msg, index) => (
-                      <div key={index} className={`flex gap-3 ${msg.role === "user" ? "justify-end" : ""}`}>
-                        {msg.role === "agent" && (
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={availableAgents.find(a => a.id === selectedAgent)?.avatar} />
-                            <AvatarFallback className="text-xs">AI</AvatarFallback>
-                          </Avatar>
-                        )}
-                        <div className={`max-w-[70%] ${msg.role === "user" ? "order-first" : ""}`}>
-                          <div className={`p-3 rounded-lg ${
-                            msg.role === "user" 
-                              ? "bg-primary text-primary-foreground ml-auto" 
-                              : "bg-muted"
-                          }`}>
-                            <p className="text-sm">{msg.message}</p>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1 px-3">
-                            {msg.timestamp}
-                          </p>
-                        </div>
-                        {msg.role === "user" && (
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback className="text-xs">JD</AvatarFallback>
-                          </Avatar>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <div className="border-t p-4">
-                  <div className="flex gap-2">
-                    <Input
-                      value={chatMessage}
-                      onChange={(e) => setChatMessage(e.target.value)}
-                      placeholder="Message your agent..."
-                      className="flex-1"
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          // Handle send message (UI-only)
-                          setChatMessage("")
-                        }
-                      }}
-                    />
-                    <Button className="button-primary">
-                      Send
-                    </Button>
                   </div>
                 </div>
               </div>
