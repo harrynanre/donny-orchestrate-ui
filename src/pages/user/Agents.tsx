@@ -36,9 +36,9 @@ export default function Agents() {
   const [showCreateAgent, setShowCreateAgent] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [filters, setFilters] = useState({
-    model: [],
-    status: [],
-    tools: []
+    model: [] as string[],
+    status: [] as string[],
+    tools: [] as string[]
   })
   const [newAgent, setNewAgent] = useState({
     name: "",
@@ -52,7 +52,7 @@ export default function Agents() {
   const availableStatuses = ["running", "idle", "paused", "error"]
   const availableTools = ["Web Scraper", "Image Generator", "SEO Optimizer", "Data Processor", "Chart Generator", "Report Builder", "Ticket System", "Knowledge Base", "Email Sender", "Social API", "Image Editor", "Analytics"]
 
-  const agents = [
+  const [agents, setAgents] = useState([
     {
       id: "1",
       name: "Content Creator",
@@ -93,7 +93,32 @@ export default function Agents() {
       lastRun: "2 days ago",
       successRate: 92,
     },
-  ]
+  ])
+
+  // Filter and search logic
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = agent.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         agent.goal.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         agent.tools.some(tool => tool.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         agent.model.toLowerCase().includes(searchTerm.toLowerCase())
+
+    const matchesModelFilter = filters.model.length === 0 || filters.model.includes(agent.model)
+    const matchesStatusFilter = filters.status.length === 0 || filters.status.includes(agent.status)
+    const matchesToolsFilter = filters.tools.length === 0 || 
+                              filters.tools.some(filterTool => agent.tools.includes(filterTool))
+
+    return matchesSearch && matchesModelFilter && matchesStatusFilter && matchesToolsFilter
+  })
+
+  const clearFilters = () => {
+    setFilters({
+      model: [],
+      status: [],
+      tools: []
+    })
+  }
+
+  const hasActiveFilters = filters.model.length > 0 || filters.status.length > 0 || filters.tools.length > 0
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -114,7 +139,25 @@ export default function Agents() {
   }
 
   const handleCreateAgent = () => {
-    console.log("Creating agent:", newAgent)
+    if (!newAgent.name.trim() || !newAgent.goal.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please provide both agent name and goal.",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    const agentId = Date.now().toString()
+    const agent = {
+      ...newAgent,
+      id: agentId,
+      lastRun: "Never",
+      successRate: 0,
+      status: "idle" as const
+    }
+    
+    setAgents(prev => [...prev, agent])
     setShowCreateAgent(false)
     setNewAgent({
       name: "",
@@ -123,9 +166,10 @@ export default function Agents() {
       tools: [],
       schedule: "manual"
     })
+    
     toast({
-      title: "Agent Created",
-      description: `Agent "${newAgent.name}" has been successfully created (mock).`,
+      title: "Agent Created Successfully",
+      description: `"${agent.name}" is now ready to deploy and run tasks.`,
     })
   }
 
@@ -141,60 +185,248 @@ export default function Agents() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-2">
         <div>
-          <h1 className="text-3xl font-bold">My Agents</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and monitor your AI agents
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
+            My Agents
+          </h1>
+          <p className="text-muted-foreground mt-2 text-base">
+            Manage and monitor your AI agents across your organization
           </p>
         </div>
-        <Button className="button-primary" onClick={() => setShowCreateAgent(true)}>
+        <Button 
+          className="button-primary shadow-lg hover:shadow-xl transition-shadow px-6 py-2 h-auto" 
+          onClick={() => setShowCreateAgent(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
-          Create Agent
+          Create New Agent
         </Button>
       </div>
-
-      {/* Search and Filters */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-4">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search agents..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card className="p-4 border-l-4 border-l-primary">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Agents</p>
+              <p className="text-2xl font-bold">{agents.length}</p>
+            </div>
+            <Bot className="h-8 w-8 text-primary opacity-75" />
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
-        </div>
-        
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === "cards" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("cards")}
-          >
-            Cards
-          </Button>
-          <Button
-            variant={viewMode === "table" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("table")}
-          >
-            Table
-          </Button>
-        </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-green-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Running</p>
+              <p className="text-2xl font-bold text-green-600">
+                {agents.filter(a => a.status === 'running').length}
+              </p>
+            </div>
+            <Play className="h-8 w-8 text-green-500 opacity-75" />
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-yellow-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Idle</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {agents.filter(a => a.status === 'idle').length}
+              </p>
+            </div>
+            <Pause className="h-8 w-8 text-yellow-500 opacity-75" />
+          </div>
+        </Card>
+        <Card className="p-4 border-l-4 border-l-accent">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Avg Success</p>
+              <p className="text-2xl font-bold text-accent">
+                {Math.round(agents.reduce((acc, a) => acc + a.successRate, 0) / agents.length)}%
+              </p>
+            </div>
+            <BarChart3 className="h-8 w-8 text-accent opacity-75" />
+          </div>
+        </Card>
       </div>
 
-      {/* Agents View */}
-      {viewMode === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {agents.map((agent) => (
+       {/* Search and Filters */}
+       <div className="flex items-center justify-between flex-wrap gap-4">
+         <div className="flex gap-4 items-center">
+           <div className="relative max-w-sm">
+             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+             <Input
+               type="search"
+               placeholder="Search agents..."
+               className="pl-10 bg-background"
+               value={searchTerm}
+               onChange={(e) => setSearchTerm(e.target.value)}
+             />
+           </div>
+           
+           <Popover open={showFilters} onOpenChange={setShowFilters}>
+             <PopoverTrigger asChild>
+               <Button variant="outline" className={`gap-2 ${hasActiveFilters ? 'border-primary bg-primary/5' : ''}`}>
+                 <Filter className="h-4 w-4" />
+                 Filter
+                 {hasActiveFilters && <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                   {filters.model.length + filters.status.length + filters.tools.length}
+                 </Badge>}
+               </Button>
+             </PopoverTrigger>
+             <PopoverContent className="w-80 bg-background border border-border" align="start">
+               <div className="space-y-4">
+                 <div className="flex items-center justify-between">
+                   <h4 className="font-medium">Filters</h4>
+                   {hasActiveFilters && (
+                     <Button variant="ghost" size="sm" onClick={clearFilters} className="h-auto p-1 text-xs">
+                       Clear all
+                     </Button>
+                   )}
+                 </div>
+                 
+                 {/* Status Filter */}
+                 <div className="space-y-2">
+                   <Label className="text-sm font-medium">Status</Label>
+                   <div className="flex flex-wrap gap-2">
+                     {availableStatuses.map((status) => (
+                       <div key={status} className="flex items-center space-x-2">
+                         <Checkbox
+                           id={`filter-status-${status}`}
+                           checked={filters.status.includes(status)}
+                           onCheckedChange={(checked) => {
+                             if (checked) {
+                               setFilters(prev => ({ ...prev, status: [...prev.status, status] }))
+                             } else {
+                               setFilters(prev => ({ ...prev, status: prev.status.filter(s => s !== status) }))
+                             }
+                           }}
+                         />
+                         <Label htmlFor={`filter-status-${status}`} className="text-sm capitalize cursor-pointer">
+                           {status}
+                         </Label>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+
+                 {/* Model Filter */}
+                 <div className="space-y-2">
+                   <Label className="text-sm font-medium">AI Model</Label>
+                   <div className="flex flex-wrap gap-2">
+                     {availableModels.map((model) => (
+                       <div key={model} className="flex items-center space-x-2">
+                         <Checkbox
+                           id={`filter-model-${model}`}
+                           checked={filters.model.includes(model)}
+                           onCheckedChange={(checked) => {
+                             if (checked) {
+                               setFilters(prev => ({ ...prev, model: [...prev.model, model] }))
+                             } else {
+                               setFilters(prev => ({ ...prev, model: prev.model.filter(m => m !== model) }))
+                             }
+                           }}
+                         />
+                         <Label htmlFor={`filter-model-${model}`} className="text-sm cursor-pointer">
+                           {model}
+                         </Label>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+
+                 {/* Tools Filter */}
+                 <div className="space-y-2">
+                   <Label className="text-sm font-medium">Tools</Label>
+                   <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                     {availableTools.slice(0, 8).map((tool) => (
+                       <div key={tool} className="flex items-center space-x-2">
+                         <Checkbox
+                           id={`filter-tool-${tool}`}
+                           checked={filters.tools.includes(tool)}
+                           onCheckedChange={(checked) => {
+                             if (checked) {
+                               setFilters(prev => ({ ...prev, tools: [...prev.tools, tool] }))
+                             } else {
+                               setFilters(prev => ({ ...prev, tools: prev.tools.filter(t => t !== tool) }))
+                             }
+                           }}
+                         />
+                         <Label htmlFor={`filter-tool-${tool}`} className="text-xs cursor-pointer truncate">
+                           {tool}
+                         </Label>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </div>
+             </PopoverContent>
+           </Popover>
+
+           {searchTerm && (
+             <div className="flex items-center gap-2 text-sm text-muted-foreground">
+               <span>Search: "{searchTerm}"</span>
+               <Button variant="ghost" size="sm" onClick={() => setSearchTerm("")} className="h-auto p-1">
+                 <X className="h-3 w-3" />
+               </Button>
+             </div>
+           )}
+         </div>
+         
+         <div className="flex gap-2">
+           <Button
+             variant={viewMode === "cards" ? "default" : "outline"}
+             size="sm"
+             onClick={() => setViewMode("cards")}
+           >
+             Cards
+           </Button>
+           <Button
+             variant={viewMode === "table" ? "default" : "outline"}
+             size="sm"
+             onClick={() => setViewMode("table")}
+           >
+             Table
+           </Button>
+         </div>
+       </div>
+
+       {/* Results Info */}
+       <div className="flex items-center justify-between text-sm text-muted-foreground">
+         <span>
+           {filteredAgents.length === agents.length 
+             ? `Showing all ${agents.length} agents` 
+             : `Showing ${filteredAgents.length} of ${agents.length} agents`
+           }
+         </span>
+         {hasActiveFilters && (
+           <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
+             Clear filters
+           </Button>
+         )}
+       </div>
+
+       {/* Agents View */}
+       {viewMode === "cards" ? (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+           {filteredAgents.length === 0 ? (
+             <div className="col-span-full text-center py-12">
+               <Bot className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+               <h3 className="font-medium text-lg mb-2">No agents found</h3>
+               <p className="text-muted-foreground mb-4">
+                 {searchTerm || hasActiveFilters 
+                   ? "Try adjusting your search or filters" 
+                   : "Create your first agent to get started"
+                 }
+               </p>
+               {!searchTerm && !hasActiveFilters && (
+                 <Button onClick={() => setShowCreateAgent(true)} className="button-primary">
+                   <Plus className="h-4 w-4 mr-2" />
+                   Create Agent
+                 </Button>
+               )}
+             </div>
+           ) : (
+             filteredAgents.map((agent) => (
             <Card key={agent.id} className="card-enterprise group cursor-pointer hover:scale-[1.02] transition-all duration-200">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -274,10 +506,11 @@ export default function Agents() {
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
+             </Card>
+           ))
+           )}
+         </div>
+       ) : (
         <Card className="card-enterprise">
           <Table>
             <TableHeader>
@@ -292,8 +525,23 @@ export default function Agents() {
                 <TableHead></TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
-              {agents.map((agent) => (
+             <TableBody>
+               {filteredAgents.length === 0 ? (
+                 <TableRow>
+                   <TableCell colSpan={8} className="h-32 text-center">
+                     <div className="flex flex-col items-center justify-center">
+                       <Bot className="h-8 w-8 text-muted-foreground mb-2" />
+                       <p className="text-muted-foreground">
+                         {searchTerm || hasActiveFilters 
+                           ? "No agents match your search criteria" 
+                           : "No agents found"
+                         }
+                       </p>
+                     </div>
+                   </TableCell>
+                 </TableRow>
+               ) : (
+                 filteredAgents.map((agent) => (
                 <TableRow key={agent.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -360,9 +608,10 @@ export default function Agents() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
+                 </TableRow>
+               ))
+               )}
+             </TableBody>
           </Table>
         </Card>
       )}
