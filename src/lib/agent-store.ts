@@ -1,5 +1,4 @@
 // Shared Agent Store with localStorage persistence and live events
-import { EventTarget } from "@/lib/utils"
 
 export interface Agent {
   id: string
@@ -22,9 +21,13 @@ export interface ActiveModel {
   lastUsed: string
 }
 
-class AgentStore extends EventTarget {
+type EventCallback<T> = (data: T) => void
+
+class AgentStore {
   private storageKey = 'donny-hub-agents'
   private modelsKey = 'donny-hub-active-models'
+  private agentCallbacks = new Set<EventCallback<Agent[]>>()
+  private modelCallbacks = new Set<EventCallback<ActiveModel[]>>()
 
   // Default agents
   private defaultAgents: Agent[] = [
@@ -129,7 +132,7 @@ class AgentStore extends EventTarget {
     const updatedAgents = [...agents, newAgent]
     this.saveAgents(updatedAgents)
     
-    this.dispatchEvent(new CustomEvent('agentsChanged', { detail: updatedAgents }))
+    this.notifyAgentChange(updatedAgents)
     return newAgent
   }
 
@@ -142,7 +145,7 @@ class AgentStore extends EventTarget {
     agents[index] = { ...agents[index], ...updates }
     this.saveAgents(agents)
     
-    this.dispatchEvent(new CustomEvent('agentsChanged', { detail: agents }))
+    this.notifyAgentChange(agents)
     return true
   }
 
@@ -153,7 +156,7 @@ class AgentStore extends EventTarget {
     if (filtered.length === agents.length) return false
     
     this.saveAgents(filtered)
-    this.dispatchEvent(new CustomEvent('agentsChanged', { detail: filtered }))
+    this.notifyAgentChange(filtered)
     return true
   }
 
@@ -184,7 +187,7 @@ class AgentStore extends EventTarget {
     const updatedModels = [...models, newModel]
     this.saveModels(updatedModels)
     
-    this.dispatchEvent(new CustomEvent('modelsChanged', { detail: updatedModels }))
+    this.notifyModelChange(updatedModels)
     return newModel
   }
 
@@ -210,17 +213,23 @@ class AgentStore extends EventTarget {
     }
   }
 
-  // Subscribe to changes
-  onAgentsChange(callback: (agents: Agent[]) => void): () => void {
-    const handler = (event: CustomEvent) => callback(event.detail)
-    this.addEventListener('agentsChanged', handler as EventListener)
-    return () => this.removeEventListener('agentsChanged', handler as EventListener)
+  private notifyAgentChange(agents: Agent[]): void {
+    this.agentCallbacks.forEach(callback => callback(agents))
   }
 
-  onModelsChange(callback: (models: ActiveModel[]) => void): () => void {
-    const handler = (event: CustomEvent) => callback(event.detail)
-    this.addEventListener('modelsChanged', handler as EventListener)
-    return () => this.removeEventListener('modelsChanged', handler as EventListener)
+  private notifyModelChange(models: ActiveModel[]): void {
+    this.modelCallbacks.forEach(callback => callback(models))
+  }
+
+  // Subscribe to changes
+  onAgentsChange(callback: EventCallback<Agent[]>): () => void {
+    this.agentCallbacks.add(callback)
+    return () => this.agentCallbacks.delete(callback)
+  }
+
+  onModelsChange(callback: EventCallback<ActiveModel[]>): () => void {
+    this.modelCallbacks.add(callback)
+    return () => this.modelCallbacks.delete(callback)
   }
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle } from "lucide-react"
+import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle, Cpu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
