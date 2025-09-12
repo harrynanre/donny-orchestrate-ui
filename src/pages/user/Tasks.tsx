@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Filter, Clock, CheckCircle2, XCircle, Play, MoreVertical, Edit, Copy, Trash2, Eye, X, AlertCircle, BarChart3 } from "lucide-react"
+import { Plus, Search, Filter, Clock, CheckCircle2, XCircle, Play, MoreVertical, Edit, Copy, Trash2, Eye, X, AlertCircle, BarChart3, Pause } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -268,6 +268,104 @@ export default function Tasks() {
         description: `"${task.title}" has been restarted.`,
       })
     }
+  }
+
+  const handlePauseTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    
+    const success = taskStore.updateTask(taskId, { 
+      status: "queued", // Paused tasks go to queued
+      lastEvent: "Task paused"
+    })
+    if (success) {
+      toast({
+        title: "Task Paused",
+        description: `"${task.title}" has been paused.`,
+      })
+    }
+  }
+
+  const handleStopTask = (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    
+    const success = taskStore.updateTask(taskId, { 
+      status: "failed", // Stopped tasks marked as failed
+      lastEvent: "Task stopped by user"
+    })
+    if (success) {
+      toast({
+        title: "Task Stopped",
+        description: `"${task.title}" has been stopped.`,
+      })
+    }
+  }
+
+  // Get dynamic menu items based on task status
+  const getTaskMenuItems = (task: Task) => {
+    const baseItems = [
+      <DropdownMenuItem key="view" onClick={() => handleViewTask(task.id)}>
+        <Eye className="h-4 w-4 mr-2" />
+        View Details
+      </DropdownMenuItem>,
+      <DropdownMenuItem key="edit" onClick={() => handleEditTask(task.id)}>
+        <Edit className="h-4 w-4 mr-2" />
+        Edit
+      </DropdownMenuItem>
+    ]
+
+    // Dynamic action items based on status
+    const actionItems = []
+    
+    if (task.status === "running") {
+      actionItems.push(
+        <DropdownMenuItem key="pause" onClick={() => handlePauseTask(task.id)}>
+          <Clock className="h-4 w-4 mr-2" />
+          Pause
+        </DropdownMenuItem>,
+        <DropdownMenuItem key="stop" onClick={() => handleStopTask(task.id)}>
+          <XCircle className="h-4 w-4 mr-2" />
+          Stop
+        </DropdownMenuItem>
+      )
+    } else if (task.status === "queued") {
+      actionItems.push(
+        <DropdownMenuItem key="stop" onClick={() => handleStopTask(task.id)}>
+          <XCircle className="h-4 w-4 mr-2" />
+          Stop
+        </DropdownMenuItem>,
+        <DropdownMenuItem key="restart" onClick={() => handleRestartTask(task.id)}>
+          <Play className="h-4 w-4 mr-2" />
+          Restart
+        </DropdownMenuItem>
+      )
+    } else if (task.status === "failed" || task.status === "done") {
+      actionItems.push(
+        <DropdownMenuItem key="restart" onClick={() => handleRestartTask(task.id)}>
+          <Play className="h-4 w-4 mr-2" />
+          Restart
+        </DropdownMenuItem>
+      )
+    }
+
+    const endItems = [
+      <DropdownMenuItem key="clone" onClick={() => handleDuplicateTask(task.id)}>
+        <Copy className="h-4 w-4 mr-2" />
+        Clone
+      </DropdownMenuItem>,
+      <DropdownMenuSeparator key="separator" />,
+      <DropdownMenuItem 
+        key="delete"
+        className="text-destructive"
+        onClick={() => handleDeleteTask(task.id)}
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Cancel
+      </DropdownMenuItem>
+    ]
+
+    return [...baseItems, ...actionItems, ...endItems]
   }
 
   // Status card click handler
@@ -602,30 +700,7 @@ export default function Tasks() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleViewTask(task.id)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditTask(task.id)}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleRestartTask(task.id)}>
-                                <Play className="h-4 w-4 mr-2" />
-                                Restart
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDuplicateTask(task.id)}>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Clone
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                className="text-destructive"
-                                onClick={() => handleDeleteTask(task.id)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Cancel
-                              </DropdownMenuItem>
+                              {getTaskMenuItems(task)}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

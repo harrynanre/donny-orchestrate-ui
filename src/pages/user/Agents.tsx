@@ -239,6 +239,21 @@ export default function Agents() {
     }
   }
 
+  const handleStopAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    const success = agentStore.updateAgent(agentId, { 
+      status: "idle"
+    })
+    if (success) {
+      toast({
+        title: "Agent Stopped",
+        description: `${agent.name} has been stopped.`,
+      })
+    }
+  }
+
   const handleDeleteAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId)
     if (!agent) return
@@ -251,6 +266,69 @@ export default function Agents() {
         variant: "destructive"
       })
     }
+  }
+
+  // Get dynamic menu items based on agent status
+  const getAgentMenuItems = (agent: Agent) => {
+    const baseItems = [
+      <DropdownMenuItem key="run" onClick={() => handleRunAgent(agent.id)}>
+        <Play className="h-4 w-4 mr-2" />
+        Run
+      </DropdownMenuItem>,
+      <DropdownMenuItem key="configure" onClick={() => handleConfigureAgent(agent.id)}>
+        <Settings className="h-4 w-4 mr-2" />
+        Configure
+      </DropdownMenuItem>
+    ]
+
+    // Dynamic action items based on status
+    const actionItems = []
+    
+    if (agent.status === "running") {
+      actionItems.push(
+        <DropdownMenuItem key="pause" onClick={() => handlePauseAgent(agent.id)}>
+          <Pause className="h-4 w-4 mr-2" />
+          Pause
+        </DropdownMenuItem>,
+        <DropdownMenuItem key="stop" onClick={() => handleStopAgent(agent.id)}>
+          <XCircle className="h-4 w-4 mr-2" />
+          Stop
+        </DropdownMenuItem>
+      )
+    } else if (agent.status === "paused") {
+      actionItems.push(
+        <DropdownMenuItem key="resume" onClick={() => handlePauseAgent(agent.id)}>
+          <Play className="h-4 w-4 mr-2" />
+          Resume
+        </DropdownMenuItem>,
+        <DropdownMenuItem key="stop" onClick={() => handleStopAgent(agent.id)}>
+          <XCircle className="h-4 w-4 mr-2" />
+          Stop
+        </DropdownMenuItem>
+      )
+    } else {
+      // For idle or error status, show resume option
+      actionItems.push(
+        <DropdownMenuItem key="resume" onClick={() => handlePauseAgent(agent.id)}>
+          <Play className="h-4 w-4 mr-2" />
+          Resume
+        </DropdownMenuItem>
+      )
+    }
+
+    const endItems = [
+      <DropdownMenuSeparator key="separator" />,
+      <DropdownMenuItem 
+        key="delete"
+        className="text-destructive"
+        onClick={() => handleDeleteAgent(agent.id)}
+      >
+        <Trash2 className="h-4 w-4 mr-2" />
+        Delete
+      </DropdownMenuItem>
+    ]
+
+    return [...baseItems, ...actionItems, ...endItems]
   }
 
   // Status card click handler
@@ -571,28 +649,9 @@ export default function Agents() {
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                     <DropdownMenuContent align="end">
-                       <DropdownMenuItem onClick={() => handleRunAgent(agent.id)}>
-                         <Play className="h-4 w-4 mr-2" />
-                         Run
-                       </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => handleConfigureAgent(agent.id)}>
-                         <Settings className="h-4 w-4 mr-2" />
-                         Configure
-                       </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
-                         <Pause className="h-4 w-4 mr-2" />
-                         {agent.status === "running" ? "Pause" : "Resume"}
-                       </DropdownMenuItem>
-                       <DropdownMenuSeparator />
-                       <DropdownMenuItem 
-                         className="text-destructive"
-                         onClick={() => handleDeleteAgent(agent.id)}
-                       >
-                         <Trash2 className="h-4 w-4 mr-2" />
-                         Delete
-                       </DropdownMenuItem>
-                     </DropdownMenuContent>
+                      <DropdownMenuContent align="end">
+                        {getAgentMenuItems(agent)}
+                      </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </CardHeader>
@@ -715,28 +774,9 @@ export default function Agents() {
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onClick={() => handleRunAgent(agent.id)}>
-                           <Play className="h-4 w-4 mr-2" />
-                           Run
-                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => handleConfigureAgent(agent.id)}>
-                           <Settings className="h-4 w-4 mr-2" />
-                           Configure
-                         </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
-                           <Pause className="h-4 w-4 mr-2" />
-                           {agent.status === "running" ? "Pause" : "Resume"}
-                         </DropdownMenuItem>
-                         <DropdownMenuSeparator />
-                         <DropdownMenuItem 
-                           className="text-destructive"
-                           onClick={() => handleDeleteAgent(agent.id)}
-                         >
-                           <Trash2 className="h-4 w-4 mr-2" />
-                           Delete
-                         </DropdownMenuItem>
-                       </DropdownMenuContent>
+                        <DropdownMenuContent align="end">
+                          {getAgentMenuItems(agent)}
+                        </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                  </TableRow>
