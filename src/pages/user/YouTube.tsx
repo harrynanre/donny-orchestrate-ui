@@ -60,17 +60,25 @@ export default function YouTube() {
       const response = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
       const data = await response.json()
       
+      // Try to extract duration from HTML if available
+      let estimatedDuration = "Loading..."
+      if (data.html) {
+        // This is a fallback - we'll get the real duration from Piped
+        estimatedDuration = "Fetching duration..."
+      }
+      
       return {
         videoId,
         title: data.title || "Unknown Video",
         thumbnail: data.thumbnail_url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
-        duration: "Loading...",
+        duration: estimatedDuration,
         channelName: data.author_name || "Unknown Channel",
         description: "Video description",
         publishedAt: new Date().toISOString(),
         viewCount: "0"
       }
     } catch (error) {
+      console.error('oEmbed fetch failed:', error)
       // Fallback if oembed fails
       return {
         videoId,
@@ -125,10 +133,17 @@ export default function YouTube() {
 
   const getPipedVideoMeta = async (videoId: string) => {
     try {
+      console.log(`Fetching Piped metadata for video: ${videoId}`)
       const { data } = await getPipedStreams(videoId)
+      console.log('Piped data received:', { duration: data.duration, title: data.title, uploader: data.uploader })
       const seconds: number | undefined = typeof data.duration === 'number' ? data.duration : undefined
-      return { durationSeconds: seconds, title: data.title as string | undefined, uploader: data.uploader as string | undefined }
-    } catch {
+      return { 
+        durationSeconds: seconds, 
+        title: data.title as string | undefined, 
+        uploader: data.uploader as string | undefined 
+      }
+    } catch (error) {
+      console.error('Piped metadata fetch failed:', error)
       return { durationSeconds: undefined, title: undefined, uploader: undefined }
     }
   }
@@ -200,18 +215,40 @@ export default function YouTube() {
       const info = await fetchVideoInfo(videoId)
       setVideoInfo(info)
 
-      // Enrich with duration/title via Piped
-      try {
-        const meta = await getPipedVideoMeta(videoId)
-        if (meta.durationSeconds || meta.title || meta.uploader) {
-          setVideoInfo(prev => prev ? ({
-            ...prev,
-            duration: meta.durationSeconds ? formatDuration(meta.durationSeconds) : prev.duration,
-            title: meta.title || prev.title,
-            channelName: meta.uploader || prev.channelName,
-          }) : prev)
+      // Enrich with duration/title via Piped (with timeout)
+      const durationPromise = new Promise<void>(async (resolve) => {
+        try {
+          const meta = await getPipedVideoMeta(videoId)
+          console.log('Piped metadata:', meta) // Debug log
+          if (meta.durationSeconds || meta.title || meta.uploader) {
+            setVideoInfo(prev => prev ? ({
+              ...prev,
+              duration: meta.durationSeconds ? formatDuration(meta.durationSeconds) : prev.duration,
+              title: meta.title || prev.title,
+              channelName: meta.uploader || prev.channelName,
+            }) : prev)
+          } else {
+            console.log('No metadata from Piped, setting fallback duration')
+            setVideoInfo(prev => prev ? ({ ...prev, duration: "Duration unavailable" }) : prev)
+          }
+        } catch (error) {
+          console.error('Failed to get Piped metadata:', error)
+          setVideoInfo(prev => prev ? ({ ...prev, duration: "Duration unavailable" }) : prev)
         }
-      } catch {}
+        resolve()
+      })
+
+      // Set a timeout for duration fetching
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.log('Duration fetch timeout, setting fallback')
+          setVideoInfo(prev => prev ? ({ ...prev, duration: "Duration unavailable" }) : prev)
+          resolve()
+        }, 10000) // 10 second timeout
+      })
+
+      // Race between duration fetch and timeout
+      Promise.race([durationPromise, timeoutPromise])
       
       toast({
         title: "Video Loaded",
