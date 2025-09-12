@@ -245,6 +245,23 @@ export default function Projects() {
     }))
   }
 
+  // Status card click handler
+  const handleStatusCardClick = (status: string) => {
+    if (filters.status.includes(status)) {
+      // Remove filter if already active
+      setFilters(prev => ({
+        ...prev,
+        status: prev.status.filter(s => s !== status)
+      }))
+    } else {
+      // Add filter
+      setFilters(prev => ({
+        ...prev,
+        status: [...prev.status, status]
+      }))
+    }
+  }
+
   const getProjectAgents = (project: Project) => {
     return agents.filter(agent => project.assignedAgents.includes(agent.id))
   }
@@ -272,7 +289,12 @@ export default function Projects() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="p-4 border-l-4 border-l-primary">
+        <Card 
+          className={`p-4 border-l-4 border-l-primary cursor-pointer transition-all hover:shadow-md ${
+            filters.status.length === 0 ? 'ring-2 ring-primary bg-primary/5' : ''
+          }`}
+          onClick={() => setFilters(prev => ({ ...prev, status: [] }))}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Projects</p>
@@ -281,7 +303,12 @@ export default function Projects() {
             <FolderOpen className="h-8 w-8 text-primary opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
+        <Card 
+          className={`p-4 border-l-4 border-l-green-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('active') ? 'ring-2 ring-green-500 bg-green-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('active')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Active</p>
@@ -292,7 +319,12 @@ export default function Projects() {
             <Calendar className="h-8 w-8 text-green-500 opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-yellow-500">
+        <Card 
+          className={`p-4 border-l-4 border-l-yellow-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('paused') ? 'ring-2 ring-yellow-500 bg-yellow-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('paused')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Paused</p>
@@ -303,7 +335,12 @@ export default function Projects() {
             <Calendar className="h-8 w-8 text-yellow-500 opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-blue-500">
+        <Card 
+          className={`p-4 border-l-4 border-l-blue-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('completed') ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('completed')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Completed</p>
