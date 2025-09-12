@@ -157,18 +157,50 @@ export default function Settings() {
   const [showPassword, setShowPassword] = useState(false)
   const [activeModels, setActiveModels] = useState<ActiveModel[]>([])
 
+  // Auto-detect system timezone
+  const getSystemTimezone = () => {
+    try {
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const offset = new Date().getTimezoneOffset() / -60
+      const offsetString = offset >= 0 ? `+${offset.toString().padStart(2, '0')}:00` : `${offset.toString().padStart(3, '0')}:00`
+      
+      // Map common timezones to user-friendly names
+      const timezoneMap: { [key: string]: string } = {
+        'America/New_York': 'UTC-05:00 (Eastern Time)',
+        'America/Chicago': 'UTC-06:00 (Central Time)', 
+        'America/Denver': 'UTC-07:00 (Mountain Time)',
+        'America/Los_Angeles': 'UTC-08:00 (Pacific Time)',
+        'America/Anchorage': 'UTC-09:00 (Alaska)',
+        'Pacific/Honolulu': 'UTC-10:00 (Hawaii)',
+        'Europe/London': 'UTC+00:00 (GMT/London)',
+        'Europe/Paris': 'UTC+01:00 (Central European)',
+        'Europe/Berlin': 'UTC+01:00 (Central European)',
+        'Europe/Moscow': 'UTC+03:00 (Moscow)',
+        'Asia/Dubai': 'UTC+04:00 (Dubai)',
+        'Asia/Kolkata': 'UTC+05:30 (India)',
+        'Asia/Shanghai': 'UTC+08:00 (China/Singapore)',
+        'Asia/Tokyo': 'UTC+09:00 (Japan/Korea)',
+        'Australia/Sydney': 'UTC+10:00 (Sydney)',
+      }
+      
+      return timezoneMap[timezone] || `UTC${offsetString} (${timezone})`
+    } catch {
+      return "UTC+00:00 (GMT/London)"
+    }
+  }
+
   // Form states
   const [profileData, setProfileData] = useState<ProfileData>({
-    name: "John Doe",
-    email: "john@company.com",
-    bio: "AI workflow enthusiast and automation specialist",
-    company: "TechCorp Inc",
-    timezone: "UTC-8 (Pacific Time)",
+    name: "",
+    email: "",
+    bio: "",
+    company: "",
+    timezone: getSystemTimezone(),
   })
 
   const [workspaceData, setWorkspaceData] = useState<WorkspaceData>({
-    name: "TechCorp Workspace",
-    description: "Main workspace for AI agent management and automation",
+    name: "",
+    description: "",
   })
 
   const [notifications, setNotifications] = useState<NotificationPrefs>({
@@ -222,8 +254,9 @@ export default function Settings() {
   // Stored API Keys - Load from localStorage
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([])
 
-  // Load API keys from localStorage on mount
+  // Load saved data from localStorage on mount
   useEffect(() => {
+    // Load API keys
     const savedApiKeys = localStorage.getItem('donny-hub-api-keys')
     if (savedApiKeys) {
       try {
@@ -233,12 +266,77 @@ export default function Settings() {
         console.error('Failed to load API keys from localStorage:', error)
       }
     }
+
+    // Load profile data
+    const savedProfile = localStorage.getItem('donny-hub-profile')
+    if (savedProfile) {
+      try {
+        const parsedProfile = JSON.parse(savedProfile)
+        setProfileData(parsedProfile)
+        setInitialProfileData(parsedProfile)
+      } catch (error) {
+        console.error('Failed to load profile from localStorage:', error)
+      }
+    } else {
+      // Set default values for new users
+      const defaultProfile = {
+        name: "John Doe",
+        email: "john@company.com", 
+        bio: "AI workflow enthusiast and automation specialist",
+        company: "TechCorp Inc",
+        timezone: getSystemTimezone(),
+      }
+      setProfileData(defaultProfile)
+      setInitialProfileData(defaultProfile)
+    }
+
+    // Load workspace data
+    const savedWorkspace = localStorage.getItem('donny-hub-workspace')
+    if (savedWorkspace) {
+      try {
+        const parsedWorkspace = JSON.parse(savedWorkspace)
+        setWorkspaceData(parsedWorkspace)
+        setInitialWorkspaceData(parsedWorkspace)
+      } catch (error) {
+        console.error('Failed to load workspace from localStorage:', error)
+      }
+    } else {
+      const defaultWorkspace = {
+        name: "My Workspace",
+        description: "Main workspace for AI agent management and automation",
+      }
+      setWorkspaceData(defaultWorkspace)
+      setInitialWorkspaceData(defaultWorkspace)
+    }
+
+    // Load notification preferences
+    const savedNotifications = localStorage.getItem('donny-hub-notifications')
+    if (savedNotifications) {
+      try {
+        const parsedNotifications = JSON.parse(savedNotifications)
+        setNotifications(parsedNotifications)
+      } catch (error) {
+        console.error('Failed to load notifications from localStorage:', error)
+      }
+    }
   }, [])
 
-  // Save API keys to localStorage whenever apiKeys changes
+  // Save data to localStorage whenever state changes
   useEffect(() => {
     localStorage.setItem('donny-hub-api-keys', JSON.stringify(apiKeys))
   }, [apiKeys])
+
+  useEffect(() => {
+    localStorage.setItem('donny-hub-profile', JSON.stringify(profileData))
+  }, [profileData])
+
+  useEffect(() => {
+    localStorage.setItem('donny-hub-workspace', JSON.stringify(workspaceData))
+  }, [workspaceData])
+
+  useEffect(() => {
+    localStorage.setItem('donny-hub-notifications', JSON.stringify(notifications))
+  }, [notifications])
 
   // Load active models and subscribe to changes
   useEffect(() => {
@@ -248,10 +346,6 @@ export default function Settings() {
     return unsubscribe
   }, [])
 
-  useEffect(() => {
-    setInitialProfileData(profileData)
-    setInitialWorkspaceData(workspaceData)
-  }, [])
 
   // Real-time API key validation
   const validateApiKey = useCallback(async (keyData: ApiKeyData, updateState: (updater: (prev: ApiKeyData) => ApiKeyData) => void) => {
