@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Filter, Bot, Play, Pause, Settings, MoreVertical, Clock, Zap, X, Cpu, BarChart3, Edit, Trash2, MoreHorizontal } from "lucide-react"
+import { Plus, Search, Filter, Bot, Play, Pause, Settings, MoreVertical, Clock, Zap, X, Cpu, BarChart3, Trash2, MoreHorizontal, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -239,19 +239,6 @@ export default function Agents() {
     }
   }
 
-  const handleEditAgent = (agentId: string) => {
-    const agent = agents.find(a => a.id === agentId)
-    if (!agent) return
-    
-    setEditingAgent(agent)
-    setShowCreateAgent(true)
-    
-    toast({
-      title: "Edit Agent",
-      description: `Editing ${agent.name}.`,
-    })
-  }
-
   const handleDeleteAgent = (agentId: string) => {
     const agent = agents.find(a => a.id === agentId)
     if (!agent) return
@@ -263,6 +250,23 @@ export default function Agents() {
         description: `${agent.name} has been removed successfully.`,
         variant: "destructive"
       })
+    }
+  }
+
+  // Status card click handler
+  const handleStatusCardClick = (status: string) => {
+    if (filters.status.includes(status)) {
+      // Remove filter if already active
+      setFilters(prev => ({
+        ...prev,
+        status: prev.status.filter(s => s !== status)
+      }))
+    } else {
+      // Add filter
+      setFilters(prev => ({
+        ...prev,
+        status: [...prev.status, status]
+      }))
     }
   }
 
@@ -307,7 +311,12 @@ export default function Agents() {
             <Bot className="h-8 w-8 text-primary opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-green-500">
+        <Card 
+          className={`p-4 border-l-4 border-l-green-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('running') ? 'ring-2 ring-green-500 bg-green-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('running')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Running</p>
@@ -318,7 +327,12 @@ export default function Agents() {
             <Play className="h-8 w-8 text-green-500 opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-yellow-500">
+        <Card 
+          className={`p-4 border-l-4 border-l-yellow-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('idle') ? 'ring-2 ring-yellow-500 bg-yellow-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('idle')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Idle</p>
@@ -329,15 +343,20 @@ export default function Agents() {
             <Pause className="h-8 w-8 text-yellow-500 opacity-75" />
           </div>
         </Card>
-        <Card className="p-4 border-l-4 border-l-accent">
+        <Card 
+          className={`p-4 border-l-4 border-l-red-500 cursor-pointer transition-all hover:shadow-md ${
+            filters.status.includes('error') ? 'ring-2 ring-red-500 bg-red-50/50' : ''
+          }`}
+          onClick={() => handleStatusCardClick('error')}
+        >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Avg Success</p>
-              <p className="text-2xl font-bold text-accent">
-                {Math.round(agents.reduce((acc, a) => acc + a.successRate, 0) / agents.length)}%
+              <p className="text-sm font-medium text-muted-foreground">Error</p>
+              <p className="text-2xl font-bold text-red-600">
+                {agents.filter(a => a.status === 'error').length}
               </p>
             </div>
-            <BarChart3 className="h-8 w-8 text-accent opacity-75" />
+            <XCircle className="h-8 w-8 text-red-500 opacity-75" />
           </div>
         </Card>
       </div>
@@ -556,10 +575,6 @@ export default function Agents() {
                          <Settings className="h-4 w-4 mr-2" />
                          Configure
                        </DropdownMenuItem>
-                       <DropdownMenuItem onClick={() => handleEditAgent(agent.id)}>
-                         <Edit className="h-4 w-4 mr-2" />
-                         Edit
-                       </DropdownMenuItem>
                        <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
                          <Pause className="h-4 w-4 mr-2" />
                          {agent.status === "running" ? "Pause" : "Resume"}
@@ -704,10 +719,6 @@ export default function Agents() {
                            <Settings className="h-4 w-4 mr-2" />
                            Configure
                          </DropdownMenuItem>
-                         <DropdownMenuItem onClick={() => handleEditAgent(agent.id)}>
-                           <Edit className="h-4 w-4 mr-2" />
-                           Edit
-                         </DropdownMenuItem>
                          <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
                            <Pause className="h-4 w-4 mr-2" />
                            {agent.status === "running" ? "Pause" : "Resume"}
@@ -736,8 +747,8 @@ export default function Agents() {
         <SheetContent className="w-[400px] sm:w-[540px] bg-background border-l border-border overflow-y-auto">
            <SheetHeader>
              <SheetTitle className="flex items-center gap-2">
-               {editingAgent ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-               {editingAgent ? "Edit Agent" : "Create New Agent"}
+               {editingAgent ? <Settings className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+               {editingAgent ? "Configure Agent" : "Create New Agent"}
              </SheetTitle>
              <SheetDescription>
                {editingAgent 
