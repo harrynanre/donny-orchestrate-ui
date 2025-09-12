@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Search, Filter, Bot, CheckSquare, Settings, AlertCircle, Clock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { activityStore, ActivityItem } from "@/lib/activity-store"
+import { agentStore } from "@/lib/agent-store"
+import { taskStore } from "@/lib/task-store"
 
 export default function Activity() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -24,6 +26,78 @@ export default function Activity() {
     const initial = activityStore.getActivities()
     setActivities(initial)
     return activityStore.onActivitiesChange(setActivities)
+  }, [])
+
+
+  // Ingest updates from agent and task stores into activity feed
+  useEffect(() => {
+    let prevAgents: any[] = []
+    let prevTasks: any[] = []
+    try { prevAgents = agentStore.getAgents() } catch {}
+    try { prevTasks = taskStore.getTasks() } catch {}
+
+    const unsubAgents = agentStore.onAgentsChange?.((agents) => {
+      // New agents
+      agents.forEach((a: any) => {
+        if (!prevAgents.find((p: any) => p.id === a.id)) {
+          activityStore.addActivity({
+            type: 'agent',
+            title: `Agent "${a.name}" created`,
+            description: a.goal || 'New agent added',
+            status: 'success',
+            agent: a.name,
+          })
+        }
+      })
+      // Agent status changes
+      agents.forEach((a: any) => {
+        const old = prevAgents.find((p: any) => p.id === a.id)
+        if (old && old.status !== a.status) {
+          activityStore.addActivity({
+            type: 'agent',
+            title: `Agent "${a.name}" ${a.status}`,
+            description: `Status changed from ${old.status} to ${a.status}`,
+            status: mapAgentStatus(a.status),
+            agent: a.name,
+          })
+        }
+      })
+      prevAgents = agents
+    })
+
+    const unsubTasks = taskStore.onTasksChange?.((tasks: any[]) => {
+      // New tasks
+      tasks.forEach((t: any) => {
+        if (!prevTasks.find((p: any) => p.id === t.id)) {
+          activityStore.addActivity({
+            type: 'task',
+            title: `Task created: ${t.title}`,
+            description: t.description,
+            status: 'success',
+            link: `/user/tasks/${t.id}`,
+          })
+        }
+      })
+      // Task status changes
+      tasks.forEach((t: any) => {
+        const old = prevTasks.find((p: any) => p.id === t.id)
+        if (old && old.status !== t.status) {
+          activityStore.addActivity({
+            type: 'task',
+            title: `Task ${t.status}: ${t.title}`,
+            description: t.lastEvent || `Status changed from ${old.status} to ${t.status}`,
+            status: mapTaskStatus(t.status),
+            link: `/user/tasks/${t.id}`,
+          })
+        }
+      })
+      prevTasks = tasks
+    })
+
+    return () => {
+      unsubAgents?.()
+      unsubTasks?.()
+    }
   }, [])
 
   const getActivityIcon = (type: string, status?: string) => {
@@ -69,6 +143,24 @@ export default function Activity() {
     return isoOrText
   }
 
+  const mapTaskStatus = (s: string) => {
+    switch (s) {
+      case 'failed': return 'error' as const
+      case 'done': return 'success' as const
+      case 'running': return 'warning' as const
+      default: return undefined
+    }
+  }
+
+  const mapAgentStatus = (s: string) => {
+    switch (s) {
+      case 'error': return 'error' as const
+      case 'running': return 'success' as const
+      case 'paused': return 'warning' as const
+      default: return undefined
+    }
+  }
+
   const groupActivitiesByDate = (list: ActivityItem[]) => {
     const groups: { [key: string]: ActivityItem[] } = {}
     const now = new Date()
@@ -108,6 +200,9 @@ export default function Activity() {
     { value: "task", label: "Tasks", count: activities.filter(a => a.type === "task").length },
     { value: "system", label: "System", count: activities.filter(a => a.type === "system").length },
   ]
+
+  const DetailIcon = selectedActivity ? getActivityIcon(selectedActivity.type, selectedActivity.status) : null
+  const detailColor = selectedActivity ? getActivityColor(selectedActivity.type, selectedActivity.status) : 'muted'
 
   return (
     <div className="p-6 space-y-6">
@@ -164,7 +259,7 @@ export default function Activity() {
                 const color = getActivityColor(activity.type, activity.status)
                 
                 return (
-                  <Card key={activity.id} className="card-enterprise group cursor-pointer hover:scale-[1.01] transition-all duration-200">
+                  <Card key={activity.id} className="card-enterprise group cursor-pointer hover:scale-[1.01] transition-all duration-200" onClick={() => { setSelectedActivity(activity); setDetailOpen(true) }}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-4">
                         {/* Icon */}
@@ -240,6 +335,46 @@ export default function Activity() {
           </CardContent>
         </Card>
       )}
+
+      {/* Details Dialog */}
+      <Dialog open={detailOpen} onOpenChange={(o) => { setDetailOpen(o); if (!o) setSelectedActivity(null) }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedActivity?.title ?? "Activity details"}</DialogTitle>
+            <DialogDescription>{selectedActivity ? formatRelativeTime(selectedActivity.timestamp) : ""}</DialogDescription>
+          </DialogHeader>
+
+          {selectedActivity && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className={`p-2 rounded-lg bg-${detailColor}/10`}>
+                  {DetailIcon ? <DetailIcon className={`h-5 w-5 text-${detailColor}`} /> : <Clock className="h-5 w-5" />}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-muted-foreground">{selectedActivity.description}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
+                    <span className="text-muted-foreground">Type: {selectedActivity.type}</span>
+                    {selectedActivity.agent && <span className="text-muted-foreground">Agent: {selectedActivity.agent}</span>}
+                    {selectedActivity.status && <Badge className={`status-pill status-${detailColor}`}>{selectedActivity.status}</Badge>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {selectedActivity?.link && (
+              <Button asChild>
+                <a href={selectedActivity.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2">
+                  Open Link
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
