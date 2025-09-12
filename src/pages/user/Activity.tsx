@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Search, Filter, Bot, CheckSquare, Settings, AlertCircle, Clock, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,120 +8,23 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 
-interface ActivityItem {
-  id: string
-  type: "agent" | "task" | "system"
-  title: string
-  description: string
-  timestamp: string
-  status?: "success" | "warning" | "error"
-  agent?: string
-  link?: string
-}
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { activityStore, ActivityItem } from "@/lib/activity-store"
 
 export default function Activity() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState<"all" | "agent" | "task" | "system">("all")
 
-  const activities: ActivityItem[] = [
-    // Today
-    {
-      id: "1",
-      type: "agent",
-      title: 'Agent "Content Creator" completed task',
-      description: "Successfully generated blog post about AI trends in marketing",
-      timestamp: "2 minutes ago",
-      status: "success",
-      agent: "Content Creator",
-      link: "/user/tasks/1",
-    },
-    {
-      id: "2",
-      type: "task",
-      title: "New task assigned by Donny",
-      description: "Analyze customer feedback data for Q4 insights",
-      timestamp: "15 minutes ago",
-      agent: "Data Analyzer",
-      link: "/user/tasks/2",
-    },
-    {
-      id: "3",
-      type: "system",
-      title: "Marketplace update available",
-      description: "3 new pre-built agents added to the marketplace",
-      timestamp: "1 hour ago",
-      status: "success",
-      link: "/user/marketplace",
-    },
-    {
-      id: "4",
-      type: "agent",
-      title: 'Agent "Customer Support" paused',
-      description: "Manual pause triggered by user action",
-      timestamp: "2 hours ago",
-      status: "warning",
-      agent: "Customer Support",
-    },
-    
-    // Yesterday
-    {
-      id: "5",
-      type: "task",
-      title: 'Task "Social Media Posting" failed',
-      description: "API rate limit exceeded, retrying in 30 minutes",
-      timestamp: "Yesterday, 11:30 PM",
-      status: "error",
-      agent: "Social Media Manager",
-      link: "/user/tasks/5",
-    },
-    {
-      id: "6",
-      type: "agent",
-      title: 'Agent "Data Analyzer" deployed',
-      description: "New agent successfully configured and activated",
-      timestamp: "Yesterday, 6:45 PM",
-      status: "success",
-      agent: "Data Analyzer",
-    },
-    {
-      id: "7",
-      type: "system",
-      title: "Weekly usage report generated",
-      description: "Your agents processed 47 tasks this week with 94% success rate",
-      timestamp: "Yesterday, 2:00 PM",
-      status: "success",
-      link: "/user/analytics",
-    },
-    
-    // Earlier
-    {
-      id: "8",
-      type: "task",
-      title: "Batch processing completed",
-      description: "Successfully processed 25 customer support tickets",
-      timestamp: "3 days ago",
-      status: "success",
-      agent: "Customer Support",
-      link: "/user/tasks/8",
-    },
-    {
-      id: "9",
-      type: "agent",
-      title: 'Agent "Website Monitor" created',
-      description: "New monitoring agent configured for website health checks",
-      timestamp: "5 days ago",
-      status: "success",
-      agent: "Website Monitor",
-    },
-    {
-      id: "10",
-      type: "system",
-      title: "Platform maintenance completed",
-      description: "Scheduled maintenance window finished, all services restored",
-      timestamp: "1 week ago",
-      status: "success",
-    },
-  ]
+  // Real-time activities from shared store
+  const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [selectedActivity, setSelectedActivity] = useState<ActivityItem | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+
+  useEffect(() => {
+    const initial = activityStore.getActivities()
+    setActivities(initial)
+    return activityStore.onActivitiesChange(setActivities)
+  }, [])
 
   const getActivityIcon = (type: string, status?: string) => {
     switch (type) {
@@ -149,24 +52,43 @@ export default function Activity() {
     }
   }
 
-  const groupActivitiesByDate = (activities: ActivityItem[]) => {
+  const formatRelativeTime = (isoOrText: string) => {
+    const d = new Date(isoOrText)
+    if (!isNaN(d.getTime())) {
+      const diff = Date.now() - d.getTime()
+      const sec = Math.floor(diff / 1000)
+      if (sec < 60) return 'Just now'
+      const min = Math.floor(sec / 60)
+      if (min < 60) return `${min} minute${min === 1 ? '' : 's'} ago`
+      const hr = Math.floor(min / 60)
+      if (hr < 24) return `${hr} hour${hr === 1 ? '' : 's'} ago`
+      const day = Math.floor(hr / 24)
+      if (day === 1) return 'Yesterday'
+      return `${day} days ago`
+    }
+    return isoOrText
+  }
+
+  const groupActivitiesByDate = (list: ActivityItem[]) => {
     const groups: { [key: string]: ActivityItem[] } = {}
-    
-    activities.forEach(activity => {
-      let dateGroup = "Earlier"
-      
-      if (activity.timestamp.includes("minute") || activity.timestamp.includes("hour")) {
-        dateGroup = "Today"
-      } else if (activity.timestamp.includes("Yesterday")) {
-        dateGroup = "Yesterday"
+    const now = new Date()
+    const y = new Date(now)
+    y.setDate(now.getDate() - 1)
+
+    list.forEach(activity => {
+      const d = new Date(activity.timestamp)
+      let key = 'Earlier'
+      if (!isNaN(d.getTime())) {
+        if (d.toDateString() === now.toDateString()) key = 'Today'
+        else if (d.toDateString() === y.toDateString()) key = 'Yesterday'
+      } else {
+        if (activity.timestamp.includes('minute') || activity.timestamp.includes('hour')) key = 'Today'
+        else if (activity.timestamp.includes('Yesterday')) key = 'Yesterday'
       }
-      
-      if (!groups[dateGroup]) {
-        groups[dateGroup] = []
-      }
-      groups[dateGroup].push(activity)
+      if (!groups[key]) groups[key] = []
+      groups[key].push(activity)
     })
-    
+
     return groups
   }
 
@@ -264,7 +186,7 @@ export default function Activity() {
                               {/* Meta Information */}
                               <div className="flex items-center gap-4 mt-3">
                                 <span className="text-xs text-muted-foreground">
-                                  {activity.timestamp}
+                                  {formatRelativeTime(activity.timestamp)}
                                 </span>
                                 
                                 {activity.agent && (
