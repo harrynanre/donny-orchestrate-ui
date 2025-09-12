@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle, Cpu } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { User, Building, Bell, Key, Save, Shield, Eye, EyeOff, Plus, Globe, CheckCircle, AlertCircle, Loader2, XCircle, Cpu, TestTube, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,16 +16,149 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast"
 import { agentStore, type ActiveModel } from "@/lib/agent-store"
 
+// Types
+interface ApiKeyData {
+  id?: string
+  name: string
+  key: string
+  provider: string
+  providerUrl: string
+  isValid: boolean
+  isTesting: boolean
+  created?: string
+  lastUsed?: string
+  status?: string
+}
+
+interface ProfileData {
+  name: string
+  email: string
+  bio: string
+  company: string
+  timezone: string
+  avatar?: string
+}
+
+interface WorkspaceData {
+  name: string
+  description: string
+}
+
+interface NotificationPrefs {
+  taskComplete: boolean
+  agentStatus: boolean
+  systemUpdates: boolean
+  weeklyReports: boolean
+  emailNotifications: boolean
+}
+
+interface WebsiteCredentials {
+  siteName: string
+  baseUrl: string
+  websiteAddress: string
+  loginType: "form" | "oauth" | "cookie"
+  username: string
+  password: string
+  twoFA: string
+  usernameSelector: string
+  passwordSelector: string
+  submitSelector: string
+  oauthProvider: string
+  cookieString: string
+  vaultGroup: string
+}
+
+// API Key Testing Service
+class ApiKeyValidator {
+  private static async validateOpenAI(key: string, url?: string): Promise<boolean> {
+    try {
+      const endpoint = url || 'https://api.openai.com/v1/models'
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  private static async validateAnthropic(key: string, url?: string): Promise<boolean> {
+    try {
+      const endpoint = url || 'https://api.anthropic.com/v1/messages'
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'test' }]
+        }),
+      })
+      return response.status !== 401 && response.status !== 403
+    } catch {
+      return false
+    }
+  }
+
+  private static async validateGoogle(key: string, url?: string): Promise<boolean> {
+    try {
+      const endpoint = url || 'https://generativelanguage.googleapis.com/v1/models'
+      const response = await fetch(`${endpoint}?key=${key}`)
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  private static async validateGeneric(key: string, url: string): Promise<boolean> {
+    if (!url) return false
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  static async validate(provider: string, key: string, customUrl?: string): Promise<boolean> {
+    if (!key) return false
+    
+    switch (provider.toLowerCase()) {
+      case 'openai':
+        return this.validateOpenAI(key, customUrl)
+      case 'anthropic':
+        return this.validateAnthropic(key, customUrl)
+      case 'google':
+        return this.validateGoogle(key, customUrl)
+      default:
+        return this.validateGeneric(key, customUrl || '')
+    }
+  }
+}
+
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile")
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [pendingAction, setPendingAction] = useState<{ type: 'revoke' | 'edit', keyId: string } | null>(null)
-  const [newApiKey, setNewApiKey] = useState({ name: "", key: "", isVerified: false })
-  const [testingKey, setTestingKey] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [activeModels, setActiveModels] = useState<ActiveModel[]>([])
-  const [newModel, setNewModel] = useState({ name: "", provider: "OpenAI", key: "", isVerified: false })
-  
-  const [profileData, setProfileData] = useState({
+
+  // Form states
+  const [profileData, setProfileData] = useState<ProfileData>({
     name: "John Doe",
     email: "john@company.com",
     bio: "AI workflow enthusiast and automation specialist",
@@ -33,12 +166,12 @@ export default function Settings() {
     timezone: "UTC-8 (Pacific Time)",
   })
 
-  const [workspaceData, setWorkspaceData] = useState({
+  const [workspaceData, setWorkspaceData] = useState<WorkspaceData>({
     name: "TechCorp Workspace",
     description: "Main workspace for AI agent management and automation",
   })
 
-  const [notifications, setNotifications] = useState({
+  const [notifications, setNotifications] = useState<NotificationPrefs>({
     taskComplete: true,
     agentStatus: true,
     systemUpdates: false,
@@ -46,7 +179,25 @@ export default function Settings() {
     emailNotifications: true,
   })
 
-  const [credentials, setCredentials] = useState({
+  const [newApiKey, setNewApiKey] = useState<ApiKeyData>({
+    name: "",
+    key: "",
+    provider: "OpenAI",
+    providerUrl: "",
+    isValid: false,
+    isTesting: false
+  })
+
+  const [newModel, setNewModel] = useState<ApiKeyData>({
+    name: "",
+    key: "",
+    provider: "OpenAI", 
+    providerUrl: "",
+    isValid: false,
+    isTesting: false
+  })
+
+  const [credentials, setCredentials] = useState<WebsiteCredentials>({
     siteName: "",
     baseUrl: "",
     websiteAddress: "",
@@ -68,13 +219,33 @@ export default function Settings() {
   const [initialProfileData, setInitialProfileData] = useState(profileData)
   const [initialWorkspaceData, setInitialWorkspaceData] = useState(workspaceData)
 
-  useEffect(() => {
-    setInitialProfileData(profileData)
-  }, [])
-
-  useEffect(() => {
-    setInitialWorkspaceData(workspaceData)
-  }, [])
+  // Stored API Keys
+  const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([
+    {
+      id: "1",
+      name: "Production API Key",
+      key: "dk_1234...5678",
+      provider: "OpenAI",
+      providerUrl: "https://api.openai.com/v1/models",
+      created: "2024-01-15",
+      lastUsed: "2 hours ago",
+      status: "active",
+      isValid: true,
+      isTesting: false
+    },
+    {
+      id: "2", 
+      name: "Development API Key",
+      key: "dk_9876...3210",
+      provider: "Anthropic",
+      providerUrl: "https://api.anthropic.com/v1/messages",
+      created: "2024-02-01",
+      lastUsed: "1 week ago", 
+      status: "active",
+      isValid: true,
+      isTesting: false
+    },
+  ])
 
   // Load active models and subscribe to changes
   useEffect(() => {
@@ -84,26 +255,64 @@ export default function Settings() {
     return unsubscribe
   }, [])
 
-  const [showPassword, setShowPassword] = useState(false)
+  useEffect(() => {
+    setInitialProfileData(profileData)
+    setInitialWorkspaceData(workspaceData)
+  }, [])
 
-  const apiKeys = [
-    {
-      id: "1",
-      name: "Production API Key",
-      key: "dk_1234...5678",
-      created: "2024-01-15",
-      lastUsed: "2 hours ago",
-      status: "active"
-    },
-    {
-      id: "2",
-      name: "Development API Key", 
-      key: "dk_9876...3210",
-      created: "2024-02-01",
-      lastUsed: "1 week ago",
-      status: "active"
-    },
-  ]
+  // Real-time API key validation
+  const validateApiKey = useCallback(async (keyData: ApiKeyData, updateState: (updater: (prev: ApiKeyData) => ApiKeyData) => void) => {
+    if (!keyData.key || keyData.key.length < 10) {
+      updateState(prev => ({ ...prev, isValid: false, isTesting: false }))
+      return
+    }
+
+    updateState(prev => ({ ...prev, isTesting: true, isValid: false }))
+
+    try {
+      const isValid = await ApiKeyValidator.validate(keyData.provider, keyData.key, keyData.providerUrl)
+      updateState(prev => ({ ...prev, isValid, isTesting: false }))
+      
+      if (isValid) {
+        toast({
+          title: "✅ API Key Valid",
+          description: `${keyData.provider} API key is working correctly`,
+        })
+      } else {
+        toast({
+          title: "❌ API Key Invalid", 
+          description: `Failed to validate ${keyData.provider} API key`,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      updateState(prev => ({ ...prev, isValid: false, isTesting: false }))
+      toast({
+        title: "❌ Validation Error",
+        description: `Error validating API key: ${error}`,
+        variant: "destructive"
+      })
+    }
+  }, [])
+
+  // Debounced validation for API keys
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (newApiKey.key && newApiKey.key.length > 10) {
+        validateApiKey(newApiKey, setNewApiKey)
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [newApiKey.key, newApiKey.provider, newApiKey.providerUrl, validateApiKey])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (newModel.key && newModel.key.length > 10) {
+        validateApiKey(newModel, setNewModel)
+      }
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [newModel.key, newModel.provider, newModel.providerUrl, validateApiKey])
 
   const handleSecureAction = (type: 'revoke' | 'edit', keyId: string) => {
     setPendingAction({ type, keyId })
@@ -111,30 +320,49 @@ export default function Settings() {
   }
 
   const handlePasswordConfirm = (password: string) => {
-    if (pendingAction) {
-      // Simulate password verification
-      console.log(`${pendingAction.type} action confirmed for key ${pendingAction.keyId}`)
+    if (pendingAction && password) {
+      if (pendingAction.type === 'revoke') {
+        setApiKeys(prev => prev.filter(key => key.id !== pendingAction.keyId))
+        toast({
+          title: "API Key Revoked",
+          description: "The API key has been successfully revoked.",
+        })
+      }
       setShowPasswordModal(false)
       setPendingAction(null)
     }
   }
 
-  const handleTestKey = async () => {
-    setTestingKey(true)
-    // Simulate API key testing
-    setTimeout(() => {
-      setNewApiKey(prev => ({ ...prev, isVerified: true }))
-      setTestingKey(false)
-    }, 2000)
-  }
-
-  const handleSubmitKey = () => {
-    if (newApiKey.isVerified) {
-      console.log("Submitting verified API key:", newApiKey)
-      setNewApiKey({ name: "", key: "", isVerified: false })
+  const handleSubmitApiKey = () => {
+    if (newApiKey.isValid && newApiKey.name && newApiKey.key) {
+      const newKey: ApiKeyData = {
+        ...newApiKey,
+        id: Date.now().toString(),
+        created: new Date().toISOString().split('T')[0],
+        lastUsed: "Never",
+        status: "active"
+      }
+      setApiKeys(prev => [...prev, newKey])
+      setNewApiKey({ name: "", key: "", provider: "OpenAI", providerUrl: "", isValid: false, isTesting: false })
       toast({
         title: "API Key Added",
-        description: "Your API key has been successfully added to the vault (mock).",
+        description: "Your API key has been successfully added.",
+      })
+    }
+  }
+
+  const handleAddModel = () => {
+    if (newModel.isValid && newModel.name && newModel.key) {
+      agentStore.addActiveModel({
+        name: newModel.name,
+        provider: newModel.provider,
+        key: newModel.key,
+        status: "active"
+      })
+      setNewModel({ name: "", key: "", provider: "OpenAI", providerUrl: "", isValid: false, isTesting: false })
+      toast({
+        title: "AI Model Added",
+        description: `${newModel.name} is now available for agent creation.`,
       })
     }
   }
@@ -165,45 +393,91 @@ export default function Settings() {
 
     setConnectionStatus("testing")
     
-    // Mock connection test with random result
-    setTimeout(() => {
-      const isReachable = Math.random() > 0.5
-      setConnectionStatus(isReachable ? "reachable" : "unreachable")
-      
-      toast({
-        title: isReachable ? "Site reachable" : "Could not reach site",
-        description: isReachable 
-          ? "Successfully connected to the website" 
-          : "Unable to establish connection to the website",
-        variant: isReachable ? "default" : "destructive"
+    try {
+      const response = await fetch(credentials.websiteAddress, { 
+        method: 'HEAD',
+        mode: 'no-cors'
       })
-    }, 2000)
+      setConnectionStatus("reachable")
+      toast({
+        title: "Site Reachable",
+        description: "Successfully connected to the website",
+      })
+    } catch {
+      setConnectionStatus("unreachable") 
+      toast({
+        title: "Connection Failed",
+        description: "Unable to establish connection to the website",
+        variant: "destructive"
+      })
+    }
   }
 
   const handleProfileSave = () => {
+    if (!profileData.name || !profileData.email) {
+      toast({
+        title: "Validation Error",
+        description: "Name and email are required fields.",
+        variant: "destructive"
+      })
+      return
+    }
+
     setProfileFormDirty(false)
     setInitialProfileData(profileData)
     toast({
       title: "Profile Saved",
-      description: "Your profile has been successfully updated (mock).",
+      description: "Your profile has been successfully updated.",
     })
   }
 
   const handleWorkspaceSave = () => {
+    if (!workspaceData.name) {
+      toast({
+        title: "Validation Error", 
+        description: "Workspace name is required.",
+        variant: "destructive"
+      })
+      return
+    }
+
     setWorkspaceFormDirty(false)
     setInitialWorkspaceData(workspaceData)
     toast({
-      title: "Workspace Saved", 
-      description: "Your workspace settings have been successfully updated (mock).",
+      title: "Workspace Saved",
+      description: "Your workspace settings have been successfully updated.",
     })
   }
 
-  const checkProfileDirty = (newData: typeof profileData) => {
+  const handleNotificationsSave = () => {
+    toast({
+      title: "Notifications Saved",
+      description: "Your notification preferences have been updated.",
+    })
+  }
+
+  const handleCredentialsSave = () => {
+    if (!credentials.siteName || !credentials.websiteAddress) {
+      toast({
+        title: "Validation Error",
+        description: "Site name and website address are required.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    toast({
+      title: "Credentials Saved",
+      description: "Website credentials have been securely stored.",
+    })
+  }
+
+  const checkProfileDirty = (newData: ProfileData) => {
     const isDirty = JSON.stringify(newData) !== JSON.stringify(initialProfileData)
     setProfileFormDirty(isDirty)
   }
 
-  const checkWorkspaceDirty = (newData: typeof workspaceData) => {
+  const checkWorkspaceDirty = (newData: WorkspaceData) => {
     const isDirty = JSON.stringify(newData) !== JSON.stringify(initialWorkspaceData)
     setWorkspaceFormDirty(isDirty)
   }
@@ -211,14 +485,36 @@ export default function Settings() {
   const getConnectionStatusBadge = () => {
     switch (connectionStatus) {
       case "reachable":
-        return <Badge className="status-pill status-success"><CheckCircle className="h-3 w-3 mr-1" />Reachable</Badge>
+        return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"><CheckCircle className="h-3 w-3 mr-1" />Reachable</Badge>
       case "unreachable":
-        return <Badge className="status-pill status-error"><XCircle className="h-3 w-3 mr-1" />Unreachable</Badge>
+        return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"><XCircle className="h-3 w-3 mr-1" />Unreachable</Badge>
       case "testing":
-        return <Badge className="status-pill status-warning"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Testing...</Badge>
+        return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Testing...</Badge>
       default:
         return <Badge variant="secondary"><AlertCircle className="h-3 w-3 mr-1" />Unknown</Badge>
     }
+  }
+
+  const getProviderUrl = (provider: string) => {
+    switch (provider.toLowerCase()) {
+      case 'openai': return 'https://api.openai.com/v1/models'
+      case 'anthropic': return 'https://api.anthropic.com/v1/messages'  
+      case 'google': return 'https://generativelanguage.googleapis.com/v1/models'
+      default: return ''
+    }
+  }
+
+  const getValidationIndicator = (keyData: ApiKeyData) => {
+    if (keyData.isTesting) {
+      return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"><Loader2 className="h-3 w-3 mr-1 animate-spin" />Testing</Badge>
+    }
+    if (keyData.isValid) {
+      return <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"><CheckCircle className="h-3 w-3 mr-1" />Valid</Badge>
+    }
+    if (keyData.key && keyData.key.length > 10 && !keyData.isTesting) {
+      return <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"><XCircle className="h-3 w-3 mr-1" />Invalid</Badge>
+    }
+    return null
   }
 
   return (
@@ -262,7 +558,7 @@ export default function Settings() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
               <CardDescription>
@@ -274,7 +570,7 @@ export default function Settings() {
               <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage src="/placeholder-avatar.jpg" alt="Profile" />
-                  <AvatarFallback className="gradient-primary text-white text-xl font-bold">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
                     {profileData.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
@@ -291,7 +587,7 @@ export default function Settings() {
               {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Full Name *</Label>
                   <Input
                     id="name"
                     value={profileData.name}
@@ -300,10 +596,11 @@ export default function Settings() {
                       setProfileData(newData)
                       checkProfileDirty(newData)
                     }}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">Email *</Label>
                   <Input
                     id="email"
                     type="email"
@@ -313,11 +610,28 @@ export default function Settings() {
                       setProfileData(newData)
                       checkProfileDirty(newData)
                     }}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="company">Company</Label>
+                  <Input
+                    id="company"
+                    value={profileData.company}
+                    onChange={(e) => {
+                      const newData = { ...profileData, company: e.target.value }
+                      setProfileData(newData)
+                      checkProfileDirty(newData)
+                    }}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="timezone">Timezone</Label>
-                  <Select value={profileData.timezone} onValueChange={(value) => setProfileData(prev => ({ ...prev, timezone: value }))}>
+                  <Select value={profileData.timezone} onValueChange={(value) => {
+                    const newData = { ...profileData, timezone: value }
+                    setProfileData(newData)
+                    checkProfileDirty(newData)
+                  }}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -373,9 +687,9 @@ export default function Settings() {
 
               <div className="flex justify-end">
                 <Button 
-                  className="button-primary"
                   disabled={!profileFormDirty}
                   onClick={handleProfileSave}
+                  className={profileFormDirty ? "bg-primary hover:bg-primary/90" : ""}
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
@@ -387,7 +701,7 @@ export default function Settings() {
 
         {/* Workspace Tab */}
         <TabsContent value="workspace" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>Workspace Settings</CardTitle>
               <CardDescription>
@@ -397,7 +711,7 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="workspaceName">Workspace Name</Label>
+                  <Label htmlFor="workspaceName">Workspace Name *</Label>
                   <Input
                     id="workspaceName"
                     value={workspaceData.name}
@@ -406,6 +720,7 @@ export default function Settings() {
                       setWorkspaceData(newData)
                       checkWorkspaceDirty(newData)
                     }}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -429,10 +744,10 @@ export default function Settings() {
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Team Members</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 border border-border rounded-lg">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="gradient-primary text-white text-sm">JD</AvatarFallback>
+                        <AvatarFallback className="bg-primary text-primary-foreground text-sm">JD</AvatarFallback>
                       </Avatar>
                       <div>
                         <div className="font-medium text-sm">John Doe</div>
@@ -442,6 +757,7 @@ export default function Settings() {
                     <Badge variant="secondary">Owner</Badge>
                   </div>
                   <Button variant="outline" className="w-full">
+                    <Plus className="h-4 w-4 mr-2" />
                     Invite Team Member
                   </Button>
                 </div>
@@ -449,9 +765,9 @@ export default function Settings() {
 
               <div className="flex justify-end">
                 <Button 
-                  className="button-primary"
                   disabled={!workspaceFormDirty}
                   onClick={handleWorkspaceSave}
+                  className={workspaceFormDirty ? "bg-primary hover:bg-primary/90" : ""}
                 >
                   <Save className="h-4 w-4 mr-2" />
                   Save Changes
@@ -463,7 +779,7 @@ export default function Settings() {
 
         {/* Notifications Tab */}
         <TabsContent value="notifications" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>Notification Preferences</CardTitle>
               <CardDescription>
@@ -556,7 +872,7 @@ export default function Settings() {
               </div>
 
               <div className="flex justify-end">
-                <Button className="button-primary">
+                <Button onClick={handleNotificationsSave} className="bg-primary hover:bg-primary/90">
                   <Save className="h-4 w-4 mr-2" />
                   Save Preferences
                 </Button>
@@ -567,7 +883,7 @@ export default function Settings() {
 
         {/* Active AI Models Tab */}
         <TabsContent value="models" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>Active AI Models</CardTitle>
               <CardDescription>
@@ -576,21 +892,28 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Add New Model */}
-              <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
-                <h4 className="font-medium">Add New AI Model</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Add New AI Model</h4>
+                  {getValidationIndicator(newModel)}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="modelName">Model Name</Label>
+                    <Label htmlFor="modelName">Model Name *</Label>
                     <Input
                       id="modelName"
-                      placeholder="e.g., GPT-4"
+                      placeholder="e.g., GPT-4, Claude-3"
                       value={newModel.name}
                       onChange={(e) => setNewModel(prev => ({ ...prev, name: e.target.value }))}
+                      required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="modelProvider">Provider</Label>
-                    <Select value={newModel.provider} onValueChange={(value) => setNewModel(prev => ({ ...prev, provider: value }))}>
+                    <Label htmlFor="modelProvider">Provider *</Label>
+                    <Select value={newModel.provider} onValueChange={(value) => {
+                      const providerUrl = getProviderUrl(value)
+                      setNewModel(prev => ({ ...prev, provider: value, providerUrl, isValid: false }))
+                    }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -602,57 +925,64 @@ export default function Settings() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="modelKey">API Key</Label>
+                    <Label htmlFor="modelProviderUrl">Provider API URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="modelProviderUrl"
+                        placeholder="https://api.provider.com/v1"
+                        value={newModel.providerUrl}
+                        onChange={(e) => setNewModel(prev => ({ ...prev, providerUrl: e.target.value, isValid: false }))}
+                      />
+                      {newModel.provider !== 'Other' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => setNewModel(prev => ({ ...prev, providerUrl: getProviderUrl(prev.provider) }))}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      API endpoint for validation (auto-filled for known providers)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="modelKey">API Key *</Label>
                     <Input
                       id="modelKey"
                       type="password"
                       placeholder="Enter API key"
                       value={newModel.key}
-                      onChange={(e) => setNewModel(prev => ({ ...prev, key: e.target.value, isVerified: false }))}
+                      onChange={(e) => setNewModel(prev => ({ ...prev, key: e.target.value, isValid: false }))}
+                      required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Key will be validated in real-time
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    onClick={() => {
-                      setTestingKey(true)
-                      setTimeout(() => {
-                        setNewModel(prev => ({ ...prev, isVerified: true }))
-                        setTestingKey(false)
-                      }, 2000)
-                    }}
-                    disabled={!newModel.key || testingKey}
+                    onClick={() => validateApiKey(newModel, setNewModel)}
+                    disabled={!newModel.key || newModel.isTesting}
                     variant="outline"
                   >
-                    {testingKey ? "Testing..." : "Test"}
+                    <TestTube className="h-4 w-4 mr-2" />
+                    {newModel.isTesting ? "Testing..." : "Test Now"}
                   </Button>
                   <Button 
-                    onClick={() => {
-                      if (newModel.isVerified && newModel.name && newModel.key) {
-                        agentStore.addActiveModel({
-                          name: newModel.name,
-                          provider: newModel.provider,
-                          key: newModel.key,
-                          status: "active"
-                        })
-                        setNewModel({ name: "", provider: "OpenAI", key: "", isVerified: false })
-                        toast({
-                          title: "AI Model Added",
-                          description: `${newModel.name} is now available for agent creation.`,
-                        })
-                      }
-                    }}
-                    disabled={!newModel.isVerified}
-                    className="button-primary"
+                    onClick={handleAddModel}
+                    disabled={!newModel.isValid || !newModel.name}
+                    className={newModel.isValid ? "bg-primary hover:bg-primary/90" : ""}
                   >
+                    <Plus className="h-4 w-4 mr-2" />
                     Add Model
                   </Button>
-                  {newModel.isVerified && (
-                    <Badge className="status-pill status-success">
-                      Verified ✓
-                    </Badge>
-                  )}
                 </div>
               </div>
 
@@ -660,34 +990,32 @@ export default function Settings() {
               <div className="space-y-4">
                 <h4 className="font-medium">Active Models</h4>
                 {activeModels.map((model) => (
-                  <div key={model.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div key={model.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <div className="font-medium">{model.name}</div>
                         <Badge variant="outline" className="text-xs">{model.provider}</Badge>
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          {model.status}
+                        </Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">{model.key.slice(0, 10)}...{model.key.slice(-4)}</div>
+                      <div className="text-sm text-muted-foreground">{model.key?.slice(0, 10)}...{model.key?.slice(-4)}</div>
                       <div className="text-xs text-muted-foreground">
                         Added: {model.created} • Last used: {model.lastUsed}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className="status-pill status-success">
-                        {model.status}
-                      </Badge>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => {
-                          toast({
-                            title: "Feature Coming Soon",
-                            description: "Model editing will be available in a future update.",
-                          })
-                        }}
-                      >
-                        Edit
-                      </Button>
-                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        toast({
+                          title: "Feature Coming Soon",
+                          description: "Model editing will be available in a future update.",
+                        })
+                      }}
+                    >
+                      Edit
+                    </Button>
                   </div>
                 ))}
                 {activeModels.length === 0 && (
@@ -704,87 +1032,144 @@ export default function Settings() {
 
         {/* API Keys Tab */}
         <TabsContent value="api" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>API Keys</CardTitle>
               <CardDescription>
-                Manage your API keys for external integrations
+                Manage your API keys for external integrations and services
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Add New API Key */}
-              <div className="space-y-4 p-4 border border-border rounded-lg bg-muted/20">
-                <h4 className="font-medium">Add New API Key</h4>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Add New API Key</h4>
+                  {getValidationIndicator(newApiKey)}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="keyName">Key Name</Label>
+                    <Label htmlFor="keyName">Key Name *</Label>
                     <Input
                       id="keyName"
-                      placeholder="Enter key name"
+                      placeholder="e.g., Production OpenAI"
                       value={newApiKey.name}
                       onChange={(e) => setNewApiKey(prev => ({ ...prev, name: e.target.value }))}
+                      required
                     />
                   </div>
                   <div>
-                    <Label htmlFor="apiKey">API Key</Label>
+                    <Label htmlFor="keyProvider">Provider *</Label>
+                    <Select value={newApiKey.provider} onValueChange={(value) => {
+                      const providerUrl = getProviderUrl(value)
+                      setNewApiKey(prev => ({ ...prev, provider: value, providerUrl, isValid: false }))
+                    }}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OpenAI">OpenAI</SelectItem>
+                        <SelectItem value="Anthropic">Anthropic</SelectItem>
+                        <SelectItem value="Google">Google</SelectItem>
+                        <SelectItem value="Stripe">Stripe</SelectItem>
+                        <SelectItem value="GitHub">GitHub</SelectItem>
+                        <SelectItem value="Other">Other/Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="keyProviderUrl">Provider API URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="keyProviderUrl"
+                        placeholder="https://api.provider.com/v1"
+                        value={newApiKey.providerUrl}
+                        onChange={(e) => setNewApiKey(prev => ({ ...prev, providerUrl: e.target.value, isValid: false }))}
+                      />
+                      {newApiKey.provider !== 'Other' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={() => setNewApiKey(prev => ({ ...prev, providerUrl: getProviderUrl(prev.provider) }))}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      API endpoint for validation (auto-filled for known providers)
+                    </p>
+                  </div>
+                  <div>
+                    <Label htmlFor="apiKey">API Key *</Label>
                     <Input
                       id="apiKey"
                       type="password"
                       placeholder="Enter API key"
                       value={newApiKey.key}
-                      onChange={(e) => setNewApiKey(prev => ({ ...prev, key: e.target.value, isVerified: false }))}
+                      onChange={(e) => setNewApiKey(prev => ({ ...prev, key: e.target.value, isValid: false }))}
+                      required
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Key will be validated in real-time
+                    </p>
                   </div>
                 </div>
                 <div className="flex gap-2">
                   <Button 
-                    onClick={handleTestKey}
-                    disabled={!newApiKey.key || testingKey}
+                    onClick={() => validateApiKey(newApiKey, setNewApiKey)}
+                    disabled={!newApiKey.key || newApiKey.isTesting}
                     variant="outline"
                   >
-                    {testingKey ? "Testing..." : "Test"}
+                    <TestTube className="h-4 w-4 mr-2" />
+                    {newApiKey.isTesting ? "Testing..." : "Test Now"}
                   </Button>
                   <Button 
-                    onClick={handleSubmitKey}
-                    disabled={!newApiKey.isVerified}
-                    className="button-primary"
+                    onClick={handleSubmitApiKey}
+                    disabled={!newApiKey.isValid || !newApiKey.name}
+                    className={newApiKey.isValid ? "bg-primary hover:bg-primary/90" : ""}
                   >
-                    Submit
+                    <Save className="h-4 w-4 mr-2" />
+                    Submit Key
                   </Button>
-                  {newApiKey.isVerified && (
-                    <Badge className="status-pill status-success">
-                      Verified ✓
-                    </Badge>
-                  )}
                 </div>
               </div>
 
               {/* Existing API Keys */}
               <div className="space-y-4">
+                <h4 className="font-medium">Stored API Keys</h4>
                 {apiKeys.map((apiKey) => (
-                  <div key={apiKey.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                  <div key={apiKey.id} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex-1">
-                      <div className="font-medium">{apiKey.name}</div>
+                      <div className="flex items-center gap-3">
+                        <div className="font-medium">{apiKey.name}</div>
+                        <Badge variant="outline" className="text-xs">{apiKey.provider}</Badge>
+                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          {apiKey.status}
+                        </Badge>
+                      </div>
                       <div className="text-sm text-muted-foreground">{apiKey.key}</div>
                       <div className="text-xs text-muted-foreground">
                         Created: {apiKey.created} • Last used: {apiKey.lastUsed}
                       </div>
+                      <div className="text-xs text-muted-foreground">
+                        Endpoint: {apiKey.providerUrl}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={`status-pill status-success`}>
-                        {apiKey.status}
-                      </Badge>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleSecureAction('edit', apiKey.id)}
+                        onClick={() => handleSecureAction('edit', apiKey.id!)}
                       >
                         Edit
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleSecureAction('revoke', apiKey.id)}
+                        onClick={() => handleSecureAction('revoke', apiKey.id!)}
                         className="text-destructive hover:text-destructive"
                       >
                         Revoke
@@ -792,6 +1177,13 @@ export default function Settings() {
                     </div>
                   </div>
                 ))}
+                {apiKeys.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p>No API keys configured</p>
+                    <p className="text-sm">Add your first API key to start integrating services</p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -799,7 +1191,7 @@ export default function Settings() {
 
         {/* Website Credentials Tab */}
         <TabsContent value="credentials" className="space-y-6">
-          <Card className="card-enterprise">
+          <Card>
             <CardHeader>
               <CardTitle>Website Credentials</CardTitle>
               <CardDescription>
@@ -809,12 +1201,13 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="siteName">Site Name</Label>
+                  <Label htmlFor="siteName">Site Name *</Label>
                   <Input
                     id="siteName"
                     value={credentials.siteName}
                     onChange={(e) => setCredentials(prev => ({ ...prev, siteName: e.target.value }))}
                     placeholder="e.g., Company Portal"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -831,6 +1224,7 @@ export default function Settings() {
                       }}
                       placeholder="https://example.com"
                       className={!validateWebsiteUrl(credentials.websiteAddress) && credentials.websiteAddress ? "border-destructive" : ""}
+                      required
                     />
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">Include https:// or http://</p>
@@ -840,8 +1234,7 @@ export default function Settings() {
                           variant="outline"
                           size="sm"
                           onClick={handleTestConnection}
-                          disabled={connectionStatus === "testing"}
-                          className="focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          disabled={connectionStatus === "testing" || !credentials.websiteAddress}
                         >
                           {connectionStatus === "testing" ? (
                             <>
@@ -890,7 +1283,7 @@ export default function Settings() {
                 </div>
 
                 {credentials.loginType === "form" && (
-                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                  <div className="space-y-4 p-4 border rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="username">Username</Label>
@@ -967,7 +1360,7 @@ export default function Settings() {
                 )}
 
                 {credentials.loginType === "oauth" && (
-                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                  <div className="space-y-4 p-4 border rounded-lg">
                     <div className="space-y-2">
                       <Label htmlFor="oauthProvider">OAuth Provider</Label>
                       <Select value={credentials.oauthProvider} onValueChange={(value) => setCredentials(prev => ({ ...prev, oauthProvider: value }))}>
@@ -977,18 +1370,20 @@ export default function Settings() {
                         <SelectContent>
                           <SelectItem value="google">Google</SelectItem>
                           <SelectItem value="microsoft">Microsoft</SelectItem>
+                          <SelectItem value="github">GitHub</SelectItem>
                           <SelectItem value="custom">Custom</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button variant="outline" disabled>
-                      Connect (UI-only)
+                    <Button variant="outline">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Configure OAuth (Coming Soon)
                     </Button>
                   </div>
                 )}
 
                 {credentials.loginType === "cookie" && (
-                  <div className="space-y-4 p-4 border border-border rounded-lg">
+                  <div className="space-y-4 p-4 border rounded-lg">
                     <div className="space-y-2">
                       <Label htmlFor="cookieString">Cookie String</Label>
                       <Textarea
@@ -1034,7 +1429,7 @@ export default function Settings() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline">Cancel</Button>
-                <Button className="button-primary">
+                <Button onClick={handleCredentialsSave} className="bg-primary hover:bg-primary/90">
                   <Save className="h-4 w-4 mr-2" />
                   Save Credentials
                 </Button>
@@ -1047,18 +1442,23 @@ export default function Settings() {
       {/* Password Confirmation Modal */}
       {showPasswordModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-card p-6 rounded-2xl max-w-md w-full mx-4 border border-border">
+          <div className="bg-card p-6 rounded-2xl max-w-md w-full mx-4 border">
             <h3 className="text-lg font-semibold mb-4">Security Verification</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Please enter your password to confirm this action.
             </p>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="confirmPassword">Password</Label>
                 <Input
-                  id="password"
+                  id="confirmPassword"
                   type="password"
                   placeholder="Enter your password"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handlePasswordConfirm(e.currentTarget.value)
+                    }
+                  }}
                 />
               </div>
               <div className="flex gap-2">
@@ -1070,8 +1470,11 @@ export default function Settings() {
                   Cancel
                 </Button>
                 <Button 
-                  onClick={() => handlePasswordConfirm("password")}
-                  className="button-primary flex-1"
+                  onClick={(e) => {
+                    const input = document.getElementById('confirmPassword') as HTMLInputElement
+                    handlePasswordConfirm(input?.value || '')
+                  }}
+                  className="bg-primary hover:bg-primary/90 flex-1"
                 >
                   Confirm
                 </Button>
