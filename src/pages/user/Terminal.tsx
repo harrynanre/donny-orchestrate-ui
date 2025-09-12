@@ -37,6 +37,7 @@ export default function Terminal() {
   const [workspace, setWorkspace] = useState("default")
   const [command, setCommand] = useState("")
   const [showClaudeSettings, setShowClaudeSettings] = useState(false)
+  const [showChatGPTSettings, setShowChatGPTSettings] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([])
   const [selectedApiKey, setSelectedApiKey] = useState<string>("")
   const [isConnected, setIsConnected] = useState(false)
@@ -47,6 +48,13 @@ export default function Terminal() {
     email: "",
     password: "",
     sessionCookie: "",
+  })
+
+  const [chatGPTCredentials, setChatGPTCredentials] = useState({
+    email: "",
+    password: "",
+    sessionToken: "",
+    accessToken: "",
   })
 
   const [consoleOutput, setConsoleOutput] = useState<ConsoleMessage[]>([
@@ -195,7 +203,11 @@ export default function Terminal() {
       } else if (provider === "claude-browser") {
         // Browser connection logic would go here
         setIsConnected(true)
-        addConsoleMessage("warning", "Browser connection simulated (not implemented)")
+        addConsoleMessage("warning", "Claude browser connection simulated")
+      } else if (provider === "chatgpt-browser") {
+        // ChatGPT browser connection logic would go here
+        setIsConnected(true)
+        addConsoleMessage("warning", "ChatGPT browser connection simulated")
       }
     } catch (error) {
       addConsoleMessage("error", `Connection failed: ${error}`)
@@ -230,6 +242,8 @@ export default function Terminal() {
         response = await callOpenAI(userMessage, keyData.key)
       } else if (provider === "claude-api" && keyData) {
         response = await callClaude(userMessage, keyData.key)
+      } else if (provider === "chatgpt-browser") {
+        response = "ChatGPT browser mode - simulated response"
       } else {
         response = "Provider not properly configured"
       }
@@ -240,6 +254,14 @@ export default function Terminal() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleSaveChatGPTSettings = () => {
+    toast({
+      title: "ChatGPT Settings Saved",
+      description: "ChatGPT browser connection settings have been saved.",
+    })
+    setShowChatGPTSettings(false)
   }
 
   const handleSaveClaudeSettings = () => {
@@ -257,6 +279,8 @@ export default function Terminal() {
     
     if (value === "claude-browser") {
       setShowClaudeSettings(true)
+    } else if (value === "chatgpt-browser") {
+      setShowChatGPTSettings(true)
     }
     
     addConsoleMessage("system", `Provider changed to: ${value}`)
@@ -285,6 +309,8 @@ export default function Terminal() {
           </Badge>
       case "claude-browser":
         return <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Browser Mode</Badge>
+      case "chatgpt-browser":
+        return <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">Browser Mode</Badge>
       default:
         return <Badge variant="secondary">No Provider</Badge>
     }
@@ -325,6 +351,7 @@ export default function Terminal() {
                     <SelectItem value="openai">OpenAI API</SelectItem>
                     <SelectItem value="claude-api">Claude API</SelectItem>
                     <SelectItem value="claude-browser">Claude via Browser</SelectItem>
+                    <SelectItem value="chatgpt-browser">ChatGPT via Browser</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -374,7 +401,7 @@ export default function Terminal() {
               <Button 
                 className="w-full button-primary" 
                 onClick={handleConnect}
-                disabled={isLoading || (provider !== "none" && provider !== "claude-browser" && !selectedApiKey)}
+                disabled={isLoading || (provider !== "none" && provider !== "claude-browser" && provider !== "chatgpt-browser" && !selectedApiKey)}
               >
                 <Zap className="h-4 w-4 mr-2" />
                 {isLoading ? "Connecting..." : isConnected ? "Reconnect" : "Connect"}
@@ -523,6 +550,95 @@ export default function Terminal() {
             <Button 
               className="w-full button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2" 
               onClick={handleSaveClaudeSettings}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save / Submit
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ChatGPT Browser Settings Sheet */}
+      <Sheet open={showChatGPTSettings} onOpenChange={setShowChatGPTSettings}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>ChatGPT Browser Connection</SheetTitle>
+            <SheetDescription>
+              Configure browser-based ChatGPT connection
+            </SheetDescription>
+          </SheetHeader>
+          
+          <div className="space-y-6 mt-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="chatgptEmail">Email</Label>
+                <Input
+                  id="chatgptEmail"
+                  type="email"
+                  value={chatGPTCredentials.email}
+                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="your@email.com"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="chatgptPassword">Password</Label>
+                <Input
+                  id="chatgptPassword"
+                  type="password"
+                  value={chatGPTCredentials.password}
+                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder="••••••••"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="sessionToken">Session Token</Label>
+                <Textarea
+                  id="sessionToken"
+                  value={chatGPTCredentials.sessionToken}
+                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, sessionToken: e.target.value }))}
+                  placeholder="Paste session token from browser..."
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Extract from browser cookies after logging in
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="accessToken">Access Token</Label>
+                <Textarea
+                  id="accessToken"
+                  value={chatGPTCredentials.accessToken}
+                  onChange={(e) => setChatGPTCredentials(prev => ({ ...prev, accessToken: e.target.value }))}
+                  placeholder="Paste access token here..."
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Optional: Extract from browser network requests
+                </p>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="text-sm">
+                <p className="font-medium text-blue-800 dark:text-blue-200 mb-1">ChatGPT Browser Integration</p>
+                <p className="text-blue-700 dark:text-blue-300">
+                  Connect to ChatGPT web interface for enhanced features and conversation continuity.
+                </p>
+              </div>
+            </div>
+
+            <Button className="w-full" variant="outline" disabled>
+              Test Connection (UI-only)
+            </Button>
+            
+            <Button 
+              className="w-full button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2" 
+              onClick={handleSaveChatGPTSettings}
             >
               <Save className="h-4 w-4 mr-2" />
               Save / Submit
