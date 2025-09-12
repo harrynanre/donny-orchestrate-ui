@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown } from "lucide-react"
+import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -184,10 +184,11 @@ export default function Dashboard() {
 
             <TabsContent value="browser" className="mt-0">
               <div className="p-6">
-                {/* Address Bar */}
+                {/* Address Bar with 75/25 split */}
                 <div className="mb-4">
                   <div className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border border-border">
-                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded border border-border min-w-0 flex-1">
+                    {/* 75% Browser URL Section */}
+                    <div className="flex items-center gap-2 px-3 py-1 bg-background rounded border border-border flex-1">
                       <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="text-sm text-muted-foreground truncate">
                         {availableAgents.find(a => a.id === selectedAgent)?.name === "Content Creator" 
@@ -198,19 +199,120 @@ export default function Dashboard() {
                         }
                       </span>
                     </div>
+                    
+                    {/* 25% AI Selector Section */}
+                    <div className="flex items-center gap-2 min-w-0" style={{width: '25%'}}>
+                      <Select value={selectedAgent} onValueChange={setSelectedAgent}>
+                        <SelectTrigger className="focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-background border-border">
+                          <SelectValue placeholder="Select AI"/>
+                        </SelectTrigger>
+                        <SelectContent className="bg-popover border border-border z-50">
+                          {availableAgents.map((agent) => (
+                            <SelectItem key={agent.id} value={agent.id}>
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-5 w-5 flex-shrink-0">
+                                  <AvatarFallback className="text-xs">{agent.name[0]}</AvatarFallback>
+                                </Avatar>
+                                <span className="truncate">{agent.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
                     <Button variant="ghost" size="sm" className="px-2">
                       <Eye className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 
-                <div className="bg-muted/30 rounded-lg border-2 border-dashed border-border h-96 flex items-center justify-center">
-                  <div className="text-center">
-                    <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="font-medium mb-2">Browser Viewport</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Live view of what the agent is browsing will appear here
-                    </p>
+                {/* Split View: 75% Browser, 25% Chat */}
+                <div className="flex gap-4 h-96">
+                  {/* 75% Browser Viewport */}
+                  <div className="bg-muted/30 rounded-lg border-2 border-dashed border-border flex-1 flex items-center justify-center" style={{width: '75%'}}>
+                    <div className="text-center">
+                      <Eye className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="font-medium mb-2">Browser Viewport</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Live view of what the agent is browsing will appear here
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* 25% Chat Section */}
+                  <div className="flex flex-col border border-border rounded-lg bg-background" style={{width: '25%'}}>
+                    {/* Chat Header */}
+                    <div className="p-3 border-b border-border">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-xs">
+                            {availableAgents.find(a => a.id === selectedAgent)?.name[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">
+                            {availableAgents.find(a => a.id === selectedAgent)?.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {availableAgents.find(a => a.id === selectedAgent)?.status}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Chat Messages */}
+                    <ScrollArea className="flex-1 p-3">
+                      <div className="space-y-3">
+                        {chatHistory.map((msg, index) => (
+                          <div key={index} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : ""}`}>
+                            {msg.role === "agent" && (
+                              <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarFallback className="text-xs">AI</AvatarFallback>
+                              </Avatar>
+                            )}
+                            <div className={`max-w-[85%] ${msg.role === "user" ? "order-first" : ""}`}>
+                              <div className={`p-2 rounded-lg text-sm ${
+                                msg.role === "user" 
+                                  ? "bg-primary text-primary-foreground ml-auto" 
+                                  : "bg-muted"
+                              }`}>
+                                <p>{msg.message}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {msg.timestamp}
+                              </p>
+                            </div>
+                            {msg.role === "user" && (
+                              <Avatar className="h-6 w-6 flex-shrink-0">
+                                <AvatarFallback className="text-xs">U</AvatarFallback>
+                              </Avatar>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    
+                    {/* Chat Input */}
+                    <div className="border-t border-border p-3">
+                      <div className="flex gap-2">
+                        <Input
+                          value={chatMessage}
+                          onChange={(e) => setChatMessage(e.target.value)}
+                          placeholder="Chat with AI..."
+                          className="flex-1 text-sm"
+                          onKeyPress={(e) => {
+                            if (e.key === "Enter") {
+                              // Handle send message (UI-only)
+                              setChatMessage("")
+                            }
+                          }}
+                        />
+                        <Button size="sm" className="button-primary px-2">
+                          <Send className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
