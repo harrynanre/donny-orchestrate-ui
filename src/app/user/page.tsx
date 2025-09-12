@@ -1,10 +1,13 @@
-import Dashboard from "@/pages/user/Dashboard"
-
 export const metadata = {
   title: "Dashboard - Donny Hub",
-  description: "AI Agent management dashboard with live preview and analytics",
+  description: "Dashboard page",
 }
 
-export default function UserDashboardPage() {
-  return <Dashboard />
+export default function DashboardPage() {
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-4">Dashboard</h1>
+      <p className="text-muted-foreground">This page is under construction.</p>
+    </div>
+  )
 }

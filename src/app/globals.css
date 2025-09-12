@@ -144,11 +144,13 @@
   }
   
   .button-primary {
-    @apply bg-gradient-primary text-primary-foreground shadow-elegant hover:shadow-glow transition-all duration-300;
+    @apply text-primary-foreground transition-all duration-300;
+    background: var(--gradient-primary);
   }
 
   .card-elegant {
-    @apply bg-card border border-border/50 shadow-card rounded-2xl;
+    @apply bg-card border border-border/50 rounded-2xl;
+    box-shadow: var(--shadow-card);
   }
 
   .input-elegant {

@@ -1,10 +1,13 @@
-import Projects from "@/pages/user/Projects"
-
 export const metadata = {
   title: "Projects - Donny Hub",
-  description: "Manage and organize your AI automation projects",
+  description: "Projects page",
 }
 
 export default function ProjectsPage() {
-  return <Projects />
+  return (
+    <div className="container mx-auto p-6">
+      <h1 className="text-3xl font-bold mb-4">Projects</h1>
+      <p className="text-muted-foreground">This page is under construction.</p>
+    </div>
+  )
 }
