@@ -49,8 +49,12 @@ export default function Terminal() {
   const [workspace, setWorkspace] = useState("default")
   const [command, setCommand] = useState("")
   const [terminalCommand, setTerminalCommand] = useState("")
-  const [terminalHistory, setTerminalHistory] = useState<ConsoleMessage[]>([
-    { timestamp: new Date().toLocaleTimeString(), type: "terminal", message: "Terminal ready. Type 'help' for available commands." }
+  const [currentPath, setCurrentPath] = useState("C:\\Users\\donny-hub")
+  const [terminalOutput, setTerminalOutput] = useState<string[]>([
+    "Microsoft Windows [Version 10.0.26100.4946]",
+    "(c) Microsoft Corporation. All rights reserved.",
+    "",
+    "C:\\Users\\donny-hub>"
   ])
   const [showClaudeSettings, setShowClaudeSettings] = useState(false)
   const [apiKeys, setApiKeys] = useState<ApiKeyData[]>([])
@@ -98,16 +102,11 @@ export default function Terminal() {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight
     }
-  }, [terminalHistory])
+  }, [terminalOutput])
 
   const addConsoleMessage = (type: ConsoleMessage['type'], message: string) => {
     const timestamp = new Date().toLocaleTimeString()
     setConsoleOutput(prev => [...prev, { timestamp, type, message }])
-  }
-
-  const addTerminalMessage = (type: ConsoleMessage['type'], message: string) => {
-    const timestamp = new Date().toLocaleTimeString()
-    setTerminalHistory(prev => [...prev, { timestamp, type, message }])
   }
 
   const getAvailableApiKeys = () => {
@@ -330,47 +329,127 @@ export default function Terminal() {
     setHighestZIndex(newZIndex)
   }
 
-  // Terminal command handling
+  // Terminal command handling (Windows CMD style)
   const handleTerminalCommand = () => {
-    if (!terminalCommand.trim()) return
+    if (!terminalCommand.trim()) {
+      setTerminalOutput(prev => [...prev, currentPath + ">"])
+      return
+    }
 
     const cmd = terminalCommand.trim()
+    const args = cmd.split(" ")
+    const command = args[0].toLowerCase()
+    
+    // Add user input to output
+    setTerminalOutput(prev => [...prev, currentPath + ">" + cmd])
     setTerminalCommand("")
-    addTerminalMessage("user", `$ ${cmd}`)
 
-    // Process terminal commands
-    switch (cmd.toLowerCase()) {
+    // Process commands
+    switch (command) {
       case "help":
-        addTerminalMessage("terminal", "Available commands:\n  help - Show this help\n  clear - Clear terminal\n  browser [url] - Open browser window\n  console - Open console window\n  ls - List files\n  pwd - Print working directory\n  date - Show current date\n  whoami - Show current user")
+        setTerminalOutput(prev => [...prev, 
+          "For more information on a specific command, type HELP command-name",
+          "BROWSER     Opens a new browser window",
+          "CD          Displays the name of or changes the current directory",
+          "CLS         Clears the screen",
+          "DIR         Displays a list of files and subdirectories in a directory",
+          "DATE        Displays or sets the date",
+          "TIME        Displays or sets the system time",
+          "VER         Displays the Windows version",
+          "WHOAMI      Displays user, group and privileges information",
+          ""
+        ])
         break
-      case "clear":
-        setTerminalHistory([])
+        
+      case "cls":
+        setTerminalOutput([
+          "Microsoft Windows [Version 10.0.26100.4946]",
+          "(c) Microsoft Corporation. All rights reserved.",
+          ""
+        ])
         break
-      case "ls":
-        addTerminalMessage("terminal", "src/  public/  package.json  README.md  tailwind.config.ts")
+        
+      case "dir":
+        setTerminalOutput(prev => [...prev,
+          " Volume in drive C has no label.",
+          " Volume Serial Number is 1234-5678",
+          "",
+          " Directory of " + currentPath,
+          "",
+          new Date().toLocaleDateString().padEnd(10) + "  " + new Date().toLocaleTimeString().padEnd(8) + "    <DIR>          .",
+          new Date().toLocaleDateString().padEnd(10) + "  " + new Date().toLocaleTimeString().padEnd(8) + "    <DIR>          ..",
+          new Date().toLocaleDateString().padEnd(10) + "  " + new Date().toLocaleTimeString().padEnd(8) + "    <DIR>          Documents",
+          new Date().toLocaleDateString().padEnd(10) + "  " + new Date().toLocaleTimeString().padEnd(8) + "    <DIR>          Desktop",
+          new Date().toLocaleDateString().padEnd(10) + "  " + new Date().toLocaleTimeString().padEnd(8) + "    <DIR>          Downloads",
+          "               3 Dir(s)  15,234,567,890 bytes free",
+          ""
+        ])
         break
-      case "pwd":
-        addTerminalMessage("terminal", "/home/donny-hub")
-        break
-      case "date":
-        addTerminalMessage("terminal", new Date().toString())
-        break
-      case "whoami":
-        addTerminalMessage("terminal", "donny-hub-user")
-        break
-      case "console":
-        createWindow('console', 'Debug Console')
-        addTerminalMessage("terminal", "Console window opened")
-        break
-      default:
-        if (cmd.startsWith("browser")) {
-          const url = cmd.split(" ")[1] || "https://google.com"
-          createWindow('browser', `Browser - ${url}`, url)
-          addTerminalMessage("terminal", `Browser opened: ${url}`)
+        
+      case "cd":
+        if (args[1]) {
+          if (args[1] === "..") {
+            const pathParts = currentPath.split("\\")
+            if (pathParts.length > 1) {
+              pathParts.pop()
+              setCurrentPath(pathParts.join("\\"))
+            }
+          } else {
+            setCurrentPath(currentPath + "\\" + args[1])
+          }
         } else {
-          addTerminalMessage("terminal", `Command not found: ${cmd}`)
+          setTerminalOutput(prev => [...prev, currentPath, ""])
         }
+        break
+        
+      case "date":
+        setTerminalOutput(prev => [...prev, 
+          "The current date is: " + new Date().toLocaleDateString(),
+          ""
+        ])
+        break
+        
+      case "time":
+        setTerminalOutput(prev => [...prev,
+          "The current time is: " + new Date().toLocaleTimeString(),
+          ""
+        ])
+        break
+        
+      case "ver":
+        setTerminalOutput(prev => [...prev,
+          "Microsoft Windows [Version 10.0.26100.4946]",
+          ""
+        ])
+        break
+        
+      case "whoami":
+        setTerminalOutput(prev => [...prev,
+          "desktop-1234\\donny-hub",
+          ""
+        ])
+        break
+        
+      case "browser":
+        const url = args[1] || "https://google.com"
+        createWindow('browser', `Browser - ${url}`, url)
+        setTerminalOutput(prev => [...prev,
+          "+ Open Browser",
+          "Opening browser window: " + url,
+          ""
+        ])
+        break
+        
+      default:
+        setTerminalOutput(prev => [...prev,
+          "'" + cmd + "' is not recognized as an internal or external command,",
+          "operable program or batch file.",
+          ""
+        ])
     }
+    
+    // Add new prompt
+    setTerminalOutput(prev => [...prev, currentPath + ">"])
   }
 
   const handleProviderChange = (value: string) => {
@@ -525,7 +604,7 @@ export default function Terminal() {
 
         {/* AI Console */}
         <div className="lg:col-span-2">
-          <Card className="card-enterprise h-[600px] flex flex-col">
+          <Card className="card-enterprise h-[500px] flex flex-col">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TerminalIcon className="h-5 w-5" />
@@ -595,58 +674,50 @@ export default function Terminal() {
           </Card>
         </div>
 
-        {/* System Terminal */}
+        {/* Command Prompt */}
         <div className="lg:col-span-1">
-          <Card className="card-enterprise h-[600px] flex flex-col">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TerminalIcon className="h-5 w-5" />
-                Terminal
+          <Card className="card-enterprise h-[500px] flex flex-col">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
+                <TerminalIcon className="h-4 w-4" />
+                Command Prompt
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
+            <CardContent className="flex-1 flex flex-col p-0">
               {/* Terminal Output */}
               <div 
                 ref={terminalRef}
-                className="flex-1 bg-black dark:bg-gray-900 rounded-lg p-4 font-mono text-sm overflow-y-auto mb-4"
+                className="flex-1 bg-black rounded-t-lg p-3 font-mono text-sm text-white overflow-y-auto border-b"
+                style={{ fontFamily: 'Consolas, "Courier New", monospace' }}
               >
-                {terminalHistory.map((line, index) => (
-                  <div key={index} className="mb-1">
-                    <span className={`${
-                      line.type === "user" ? "text-cyan-400" :
-                      line.type === "terminal" ? "text-green-400" :
-                      "text-gray-300"
-                    }`}>
-                      {line.message}
-                    </span>
+                {terminalOutput.map((line, index) => (
+                  <div key={index} className="whitespace-pre-wrap">
+                    {line}
                   </div>
                 ))}
-                <div className="flex items-center gap-2">
-                  <span className="text-green-400">$</span>
-                  <span className="text-white animate-pulse">_</span>
+                <div className="flex items-center">
+                  <span>{currentPath}&gt;</span>
+                  <span className="ml-1 animate-pulse">_</span>
                 </div>
               </div>
 
               {/* Terminal Input */}
-              <div className="flex gap-2">
-                <Input
-                  value={terminalCommand}
-                  onChange={(e) => setTerminalCommand(e.target.value)}
-                  placeholder="Type 'help' for commands..."
-                  className="flex-1 font-mono"
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleTerminalCommand()
-                    }
-                  }}
-                />
-                <Button 
-                  className="button-primary"
-                  onClick={handleTerminalCommand}
-                  disabled={!terminalCommand.trim()}
-                >
-                  <Play className="h-4 w-4" />
-                </Button>
+              <div className="p-3 bg-muted">
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="font-mono text-muted-foreground">{currentPath}&gt;</span>
+                  <Input
+                    value={terminalCommand}
+                    onChange={(e) => setTerminalCommand(e.target.value)}
+                    placeholder=""
+                    className="flex-1 font-mono text-sm border-0 bg-transparent focus:ring-0 p-0"
+                    style={{ fontFamily: 'Consolas, "Courier New", monospace' }}
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter") {
+                        handleTerminalCommand()
+                      }
+                    }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -654,27 +725,23 @@ export default function Terminal() {
       </div>
 
       {/* Floating Windows */}
-      {windows.map((window) => (
+      <div className="mt-6 space-y-4">{windows.map((window) => (
         <div
           key={window.id}
-          className={`fixed bg-background border border-border rounded-lg shadow-2xl ${
-            window.isMinimized ? 'w-64 h-12' : ''
-          } ${window.isMaximized ? 'top-0 left-0 w-full h-full' : ''}`}
+          className={`relative bg-background border border-border rounded-lg shadow-xl transition-all duration-200 ${
+            window.isMinimized ? 'h-12' : 'h-96'
+          }`}
           style={{
-            left: window.isMaximized ? 0 : window.position.x,
-            top: window.isMaximized ? 0 : window.position.y,
-            width: window.isMaximized ? '100%' : window.isMinimized ? '256px' : window.size.width,
-            height: window.isMaximized ? '100%' : window.isMinimized ? '48px' : window.size.height,
+            width: window.isMinimized ? '300px' : '800px',
             zIndex: window.zIndex
           }}
           onClick={() => bringToFront(window.id)}
         >
           {/* Window Header */}
-          <div className="flex items-center justify-between p-2 bg-muted border-b border-border cursor-move">
+          <div className="flex items-center justify-between p-3 bg-muted border-b border-border">
             <div className="flex items-center gap-2">
               {window.type === 'browser' && <Globe className="h-4 w-4" />}
               {window.type === 'console' && <Monitor className="h-4 w-4" />}
-              {window.type === 'terminal' && <TerminalIcon className="h-4 w-4" />}
               <span className="text-sm font-medium">{window.title}</span>
             </div>
             <div className="flex items-center gap-1">
@@ -695,17 +762,6 @@ export default function Terminal() {
                 className="h-6 w-6 p-0"
                 onClick={(e) => {
                   e.stopPropagation()
-                  maximizeWindow(window.id)
-                }}
-              >
-                <Maximize2 className="h-3 w-3" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0"
-                onClick={(e) => {
-                  e.stopPropagation()
                   closeWindow(window.id)
                 }}
               >
@@ -716,34 +772,29 @@ export default function Terminal() {
 
           {/* Window Content */}
           {!window.isMinimized && (
-            <div className="flex-1 p-4 overflow-hidden">
+            <div className="flex-1 p-4 overflow-hidden h-80">
               {window.type === 'browser' && (
                 <div className="h-full">
                   <div className="mb-2">
                     <Input 
                       defaultValue={window.url} 
-                      className="text-xs"
+                      className="text-xs bg-background"
                       readOnly 
                     />
                   </div>
                   <iframe 
                     src={window.url} 
-                    className="w-full h-[calc(100%-2rem)] border border-border rounded"
+                    className="w-full h-[calc(100%-2rem)] border border-border rounded bg-white"
                     title={window.title}
                   />
                 </div>
               )}
               {window.type === 'console' && (
-                <div className="h-full bg-black rounded p-2 font-mono text-sm text-green-400 overflow-y-auto">
-                  <div>Console Debug Window</div>
+                <div className="h-full bg-black rounded p-3 font-mono text-sm text-green-400 overflow-y-auto">
+                  <div>Debug Console Window</div>
                   <div className="text-yellow-400">No errors detected</div>
                   <div className="text-blue-400">Application running normally</div>
-                </div>
-              )}
-              {window.type === 'terminal' && (
-                <div className="h-full bg-black rounded p-2 font-mono text-sm text-green-400 overflow-y-auto">
-                  <div>$ Terminal Window</div>
-                  <div>Type commands here...</div>
+                  <div className="text-gray-400 mt-2">Ready for debug output...</div>
                 </div>
               )}
             </div>
@@ -826,6 +877,7 @@ export default function Terminal() {
         </SheetContent>
       </Sheet>
 
+      </div>
     </div>
   )
 }
