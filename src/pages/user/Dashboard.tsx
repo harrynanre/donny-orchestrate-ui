@@ -39,23 +39,30 @@ export default function Dashboard() {
     { 
       id: "content-creator", 
       name: "Content Creator", 
-      tagline: "Generates and optimizes content across platforms",
+      tagline: "Generate blog posts and social media content",
       avatar: "/placeholder-avatar.jpg",
-      status: "active"
+      status: "running"
     },
     { 
       id: "data-analyzer", 
       name: "Data Analyzer", 
-      tagline: "Processes and analyzes complex datasets",
+      tagline: "Process and analyze customer data for insights",
       avatar: "/placeholder-avatar.jpg",
       status: "idle"
     },
     { 
-      id: "web-scanner", 
-      name: "Web Scanner", 
-      tagline: "Monitors and optimizes website performance",
+      id: "customer-support", 
+      name: "Customer Support", 
+      tagline: "Handle customer inquiries and support tickets",
       avatar: "/placeholder-avatar.jpg",
       status: "running"
+    },
+    { 
+      id: "social-media-manager", 
+      name: "Social Media Manager", 
+      tagline: "Schedule and manage social media posts",
+      avatar: "/placeholder-avatar.jpg",
+      status: "paused"
     },
   ]
 
