@@ -512,6 +512,12 @@ export default function Settings() {
 
     setProfileFormDirty(false)
     setInitialProfileData(profileData)
+    
+    // Dispatch custom event to notify header component
+    window.dispatchEvent(new CustomEvent('profile-updated', { 
+      detail: profileData 
+    }))
+    
     toast({
       title: "Profile Saved",
       description: "Your profile has been successfully updated.",
