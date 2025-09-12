@@ -95,11 +95,11 @@ export default function YouTube() {
 
   // Piped instances and helpers
   const pipedInstances = [
-    'https://piped.video',
-    'https://piped.lunar.icu',
-    'https://piped.privacy.com.de',
-    'https://piped.darkness.services',
-    'https://piped.smnz.de'
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+    'https://pipedapi.leptons.xyz',
+    'https://pipedapi.r4fo.com',
+    'https://pipedapi.palveluntarjoaja.eu',
   ] as const
 
   const fetchWithTimeout = async (input: RequestInfo | URL, init: RequestInit & { timeout?: number } = {}) => {
@@ -117,12 +117,36 @@ export default function YouTube() {
   const getPipedStreams = async (videoId: string): Promise<{ data: any; base: string }> => {
     let lastError: any
     for (const base of pipedInstances) {
+      // Try direct API first
       try {
-        const url = `${base}/api/v1/streams/${videoId}`
+        const url = `${base}/streams/${videoId}`
         const res = await fetchWithTimeout(url, { headers: { accept: 'application/json' }, timeout: 9000 })
         if (res.ok) {
           const data = await res.json()
           if (data?.audioStreams?.length) return { data, base }
+        } else {
+          lastError = new Error(`HTTP ${res.status}`)
+        }
+      } catch (e) {
+        lastError = e
+      }
+
+      // CORS-friendly fallback via r.jina.ai proxy
+      try {
+        const host = base.replace(/^https?:\/\//, '')
+        const proxyUrls = [
+          `https://r.jina.ai/http://${host}/streams/${videoId}`,
+          `https://r.jina.ai/https://${host}/streams/${videoId}`,
+        ]
+        for (const purl of proxyUrls) {
+          const res = await fetchWithTimeout(purl, { headers: { accept: 'application/json' }, timeout: 9000 })
+          if (res.ok) {
+            const text = await res.text()
+            try {
+              const data = JSON.parse(text)
+              if (data?.audioStreams?.length) return { data, base }
+            } catch {}
+          }
         }
       } catch (e) {
         lastError = e
@@ -161,6 +185,7 @@ export default function YouTube() {
     return new Promise((resolve) => {
       try {
         const a = new Audio()
+        a.crossOrigin = 'anonymous'
         a.preload = 'metadata'
         a.src = url
         const timer = setTimeout(() => { cleanup(); resolve(false) }, 12000)
@@ -168,11 +193,16 @@ export default function YouTube() {
           clearTimeout(timer)
           a.onloadedmetadata = null
           a.onerror = null
+          a.oncanplaythrough = null
         }
         a.onloadedmetadata = () => {
           const ok = !!a.duration && !isNaN(a.duration) && a.duration > 0
           cleanup()
           resolve(ok)
+        }
+        a.oncanplaythrough = () => {
+          cleanup()
+          resolve(true)
         }
         a.onerror = () => { cleanup(); resolve(false) }
       } catch {
@@ -278,7 +308,7 @@ export default function YouTube() {
       const ok = await verifyAudioUrl(audioUrl)
       if (!ok) throw new Error('Audio verification failed')
 
-      if (durationSeconds && (videoInfo.duration === 'Loading...' || videoInfo.duration === 'Unknown')) {
+      if (durationSeconds && (/(Loading|Unknown|unavailable)/i.test(videoInfo.duration))) {
         setVideoInfo(prev => prev ? ({ ...prev, duration: formatDuration(durationSeconds) }) : prev)
       }
 
@@ -613,6 +643,7 @@ Video Details:
                           controls 
                           className="w-full mt-4"
                           src={processingState.audioUrl}
+                          crossOrigin="anonymous"
                         >
                           Your browser does not support the audio element.
                         </audio>
