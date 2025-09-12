@@ -27,20 +27,12 @@ export default function Dashboard() {
       case 'start-task':
         navigate('/user/tasks')
         break
-      case 'open-chat':
-        // Scroll to chat section or trigger global chat
-        const chatSection = document.querySelector('[data-chat-section]')
-        if (chatSection) {
-          chatSection.scrollIntoView({ behavior: 'smooth' })
-        }
-        break
     }
   }
   // Fallback: ensure quickActions exists to prevent runtime errors
   const quickActions = [
     { id: 'create-agent', label: 'Create Agent', icon: Bot },
     { id: 'start-task', label: 'Start Task', icon: CheckSquare },
-    { id: 'open-chat', label: 'Open Chat', icon: Zap },
   ]
 
   const availableAgents = [
