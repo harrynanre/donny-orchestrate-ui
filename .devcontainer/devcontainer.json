@@ -1,0 +1,28 @@
+{
+  "name": "Donny V5 UI Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss"
+      ]
+    },
+    "claude": {
+      "dangerouslyAllowBrowserAutomation": false,
+      "dangerouslyAllowPromptBypass": false
+    }
+  },
+  "forwardPorts": [5000, 5055, 5056],
+  "postCreateCommand": "npm install",
+  "remoteUser": "node",
+  "mounts": [
+    "source=${localWorkspaceFolder}/.claude,target=/workspace/.claude,type=bind,consistency=cached"
+  ],
+  "runArgs": ["--name", "donny-v5-ui-devcontainer"]
+}
