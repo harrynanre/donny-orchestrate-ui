@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 
 export function HelpSystem() {
   const [question, setQuestion] = useState("")
-  const [position, setPosition] = useState({ x: window.innerWidth - 80, y: 20 })
+  const [position, setPosition] = useState({ x: 20, y: window.innerHeight - 120 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
