@@ -30,6 +30,7 @@ interface ProfileData {
   bio: string
   company: string
   timezone: string
+  avatar?: string
 }
 
 export function AppHeader() {
@@ -181,7 +182,7 @@ export function AppHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-9 px-2 gap-2">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src="/placeholder-avatar.jpg" alt="User" />
+                  <AvatarImage src={profileData.avatar || "/placeholder-avatar.jpg"} alt="User" />
                   <AvatarFallback className="text-xs">{getInitials(profileData.name)}</AvatarFallback>
                 </Avatar>
                 <span className="text-sm font-medium hidden sm:block">{profileData.name}</span>
