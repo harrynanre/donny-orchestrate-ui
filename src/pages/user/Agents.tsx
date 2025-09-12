@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, Filter, Bot, Play, Pause, Settings, MoreVertical, Clock, Zap, X, Cpu, BarChart3 } from "lucide-react"
+import { Plus, Search, Filter, Bot, Play, Pause, Settings, MoreVertical, Clock, Zap, X, Cpu, BarChart3, Edit, Trash2, MoreHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
@@ -48,6 +49,7 @@ export default function Agents() {
     tools: [],
     schedule: "manual"
   })
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null)
 
   const [availableModels, setAvailableModels] = useState<string[]>([])
   const availableStatuses = ["running", "idle", "paused", "error"]
@@ -74,6 +76,19 @@ export default function Agents() {
       unsubscribeModels()
     }
   }, [])
+
+  // Pre-fill form when editing
+  useEffect(() => {
+    if (editingAgent) {
+      setNewAgent({
+        name: editingAgent.name,
+        goal: editingAgent.goal,
+        model: editingAgent.model,
+        tools: editingAgent.tools,
+        schedule: "manual"
+      })
+    }
+  }, [editingAgent])
 
   // Filter and search logic
   const filteredAgents = agents.filter(agent => {
@@ -129,14 +144,39 @@ export default function Agents() {
     }
     
     try {
-      const agent = agentStore.addAgent({
-        name: newAgent.name,
-        goal: newAgent.goal,
-        model: newAgent.model,
-        tools: newAgent.tools as string[]
-      })
-      
+      if (editingAgent) {
+        // Update existing agent
+        const success = agentStore.updateAgent(editingAgent.id, {
+          name: newAgent.name,
+          goal: newAgent.goal,
+          model: newAgent.model,
+          tools: newAgent.tools as string[]
+        })
+
+        if (success) {
+          toast({
+            title: "Agent Updated",
+            description: `"${newAgent.name}" has been updated successfully.`,
+          })
+        }
+      } else {
+        // Create new agent
+        const agent = agentStore.addAgent({
+          name: newAgent.name,
+          goal: newAgent.goal,
+          model: newAgent.model,
+          tools: newAgent.tools as string[]
+        })
+        
+        toast({
+          title: "Agent Created Successfully",
+          description: `"${agent.name}" is now ready to deploy and run tasks.`,
+        })
+      }
+
+      // Reset form and close sheet
       setShowCreateAgent(false)
+      setEditingAgent(null)
       setNewAgent({
         name: "",
         goal: "",
@@ -144,15 +184,83 @@ export default function Agents() {
         tools: [],
         schedule: "manual"
       })
-      
-      toast({
-        title: "Agent Created Successfully",
-        description: `"${agent.name}" is now ready to deploy and run tasks.`,
-      })
     } catch (error) {
       toast({
-        title: "Error Creating Agent",
-        description: "Failed to create agent. Please try again.",
+        title: `Error ${editingAgent ? 'Updating' : 'Creating'} Agent`,
+        description: `Failed to ${editingAgent ? 'update' : 'create'} agent. Please try again.`,
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Agent action handlers
+  const handleRunAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    const success = agentStore.updateAgent(agentId, { 
+      status: "running",
+      lastRun: "Just now"
+    })
+    if (success) {
+      toast({
+        title: "Agent Started",
+        description: `${agent.name} is now running successfully.`,
+      })
+    }
+  }
+
+  const handleConfigureAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    setEditingAgent(agent)
+    setShowCreateAgent(true)
+    
+    toast({
+      title: "Configure Agent",
+      description: `Opening configuration for ${agent.name}.`,
+    })
+  }
+
+  const handlePauseAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    const newStatus = agent.status === "running" ? "paused" : "running"
+    const success = agentStore.updateAgent(agentId, { 
+      status: newStatus
+    })
+    if (success) {
+      toast({
+        title: newStatus === "paused" ? "Agent Paused" : "Agent Resumed",
+        description: `${agent.name} has been ${newStatus === "paused" ? "paused" : "resumed"}.`,
+      })
+    }
+  }
+
+  const handleEditAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    setEditingAgent(agent)
+    setShowCreateAgent(true)
+    
+    toast({
+      title: "Edit Agent",
+      description: `Editing ${agent.name}.`,
+    })
+  }
+
+  const handleDeleteAgent = (agentId: string) => {
+    const agent = agents.find(a => a.id === agentId)
+    if (!agent) return
+    
+    const success = agentStore.deleteAgent(agentId)
+    if (success) {
+      toast({
+        title: "Agent Deleted",
+        description: `${agent.name} has been removed successfully.`,
         variant: "destructive"
       })
     }
@@ -439,21 +547,32 @@ export default function Agents() {
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Play className="h-4 w-4 mr-2" />
-                        Run
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Settings className="h-4 w-4 mr-2" />
-                        Configure
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Pause className="h-4 w-4 mr-2" />
-                        Pause
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                    </DropdownMenuContent>
+                     <DropdownMenuContent align="end">
+                       <DropdownMenuItem onClick={() => handleRunAgent(agent.id)}>
+                         <Play className="h-4 w-4 mr-2" />
+                         Run
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => handleConfigureAgent(agent.id)}>
+                         <Settings className="h-4 w-4 mr-2" />
+                         Configure
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => handleEditAgent(agent.id)}>
+                         <Edit className="h-4 w-4 mr-2" />
+                         Edit
+                       </DropdownMenuItem>
+                       <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
+                         <Pause className="h-4 w-4 mr-2" />
+                         {agent.status === "running" ? "Pause" : "Resume"}
+                       </DropdownMenuItem>
+                       <DropdownMenuSeparator />
+                       <DropdownMenuItem 
+                         className="text-destructive"
+                         onClick={() => handleDeleteAgent(agent.id)}
+                       >
+                         <Trash2 className="h-4 w-4 mr-2" />
+                         Delete
+                       </DropdownMenuItem>
+                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </CardHeader>
@@ -576,21 +695,32 @@ export default function Agents() {
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Play className="h-4 w-4 mr-2" />
-                          Run
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Settings className="h-4 w-4 mr-2" />
-                          Configure
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Pause className="h-4 w-4 mr-2" />
-                          Pause
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
-                      </DropdownMenuContent>
+                       <DropdownMenuContent align="end">
+                         <DropdownMenuItem onClick={() => handleRunAgent(agent.id)}>
+                           <Play className="h-4 w-4 mr-2" />
+                           Run
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handleConfigureAgent(agent.id)}>
+                           <Settings className="h-4 w-4 mr-2" />
+                           Configure
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handleEditAgent(agent.id)}>
+                           <Edit className="h-4 w-4 mr-2" />
+                           Edit
+                         </DropdownMenuItem>
+                         <DropdownMenuItem onClick={() => handlePauseAgent(agent.id)}>
+                           <Pause className="h-4 w-4 mr-2" />
+                           {agent.status === "running" ? "Pause" : "Resume"}
+                         </DropdownMenuItem>
+                         <DropdownMenuSeparator />
+                         <DropdownMenuItem 
+                           className="text-destructive"
+                           onClick={() => handleDeleteAgent(agent.id)}
+                         >
+                           <Trash2 className="h-4 w-4 mr-2" />
+                           Delete
+                         </DropdownMenuItem>
+                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
                  </TableRow>
@@ -604,12 +734,18 @@ export default function Agents() {
       {/* Create Agent Drawer */}
       <Sheet open={showCreateAgent} onOpenChange={setShowCreateAgent}>
         <SheetContent className="w-[400px] sm:w-[540px] bg-background border-l border-border overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Create New Agent</SheetTitle>
-            <SheetDescription>
-              Configure your new AI agent with specific goals and capabilities
-            </SheetDescription>
-          </SheetHeader>
+           <SheetHeader>
+             <SheetTitle className="flex items-center gap-2">
+               {editingAgent ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+               {editingAgent ? "Edit Agent" : "Create New Agent"}
+             </SheetTitle>
+             <SheetDescription>
+               {editingAgent 
+                 ? "Modify your AI agent configuration and capabilities" 
+                 : "Configure your new AI agent with specific goals and capabilities"
+               }
+             </SheetDescription>
+           </SheetHeader>
           
           <div className="space-y-6 mt-6">
             <div className="space-y-2">
@@ -690,23 +826,33 @@ export default function Agents() {
               </Select>
             </div>
             
-            <div className="flex gap-3 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowCreateAgent(false)}
-                className="flex-1 focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleCreateAgent}
-                disabled={!newAgent.name || !newAgent.goal}
-                className="flex-1 button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <Bot className="h-4 w-4 mr-2" />
-                Create Agent
-              </Button>
-            </div>
+             <div className="flex gap-3 pt-4">
+               <Button 
+                 variant="outline" 
+                 onClick={() => {
+                   setShowCreateAgent(false)
+                   setEditingAgent(null)
+                   setNewAgent({
+                     name: "",
+                     goal: "",
+                     model: availableModels[0] || "GPT-4",
+                     tools: [],
+                     schedule: "manual"
+                   })
+                 }}
+                 className="flex-1 focus:ring-2 focus:ring-ring focus:ring-offset-2"
+               >
+                 Cancel
+               </Button>
+               <Button 
+                 onClick={handleCreateAgent}
+                 disabled={!newAgent.name || !newAgent.goal}
+                 className="flex-1 button-primary focus:ring-2 focus:ring-ring focus:ring-offset-2"
+               >
+                 <Bot className="h-4 w-4 mr-2" />
+                 {editingAgent ? "Update Agent" : "Create Agent"}
+               </Button>
+             </div>
           </div>
         </SheetContent>
       </Sheet>
