@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Terminal as TerminalIcon, Play, Settings, Zap, Save, CheckCircle, XCircle, Loader2, Monitor, X, Maximize2, Minimize2, Globe } from "lucide-react"
+import { Terminal as TerminalIcon, Play, Settings, Zap, Save, CheckCircle, XCircle, Loader2, Monitor, X, Maximize2, Minimize2, Globe, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,6 +37,8 @@ interface FloatingWindow {
   type: 'browser' | 'console' | 'terminal'
   title: string
   url?: string
+  address?: string
+  iframeKey?: number
   position: { x: number; y: number }
   size: { width: number; height: number }
   isMinimized: boolean
@@ -65,6 +67,14 @@ export default function Terminal() {
   const [highestZIndex, setHighestZIndex] = useState(1000)
   const outputRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<HTMLDivElement>(null)
+  const windowsContainerRef = useRef<HTMLDivElement>(null)
+  const [containerHeight, setContainerHeight] = useState(600)
+  const draggingRef = useRef<{
+    id: string; startX: number; startY: number; origX: number; origY: number
+  } | null>(null)
+  const resizingRef = useRef<{
+    id: string; startX: number; startY: number; origW: number; origH: number
+  } | null>(null)
   
   const [claudeCredentials, setClaudeCredentials] = useState({
     email: "",
@@ -290,8 +300,10 @@ export default function Terminal() {
       type,
       title,
       url,
-      position: { x: 100 + windows.length * 30, y: 100 + windows.length * 30 },
-      size: { width: 800, height: 600 },
+      address: url ?? "",
+      iframeKey: 0,
+      position: { x: 24 + windows.length * 32, y: 24 + windows.length * 24 },
+      size: { width: 900, height: 600 },
       isMinimized: false,
       isMaximized: false,
       zIndex: highestZIndex + 1
