@@ -698,6 +698,25 @@ export default function Settings() {
     return null
   }
 
+  const maskApiKey = (key: string) => {
+    if (!key || key.length < 8) return key
+    
+    // Different masking patterns for different providers
+    if (key.startsWith('sk-')) {
+      // OpenAI format: sk-***...****
+      return `sk-${'*'.repeat(8)}...${key.slice(-4)}`
+    } else if (key.startsWith('pk_')) {
+      // Stripe format: pk_***...****  
+      return `pk_${'*'.repeat(8)}...${key.slice(-4)}`
+    } else if (key.length > 12) {
+      // Generic long key: ***...****
+      return `${key.slice(0, 4)}${'*'.repeat(8)}...${key.slice(-4)}`
+    } else {
+      // Short key: ****
+      return '*'.repeat(key.length)
+    }
+  }
+
   const getProviderUrl = (provider: string) => {
     switch (provider.toLowerCase()) {
       case 'openai': return 'https://api.openai.com/v1/models'
@@ -1324,7 +1343,7 @@ export default function Settings() {
                           {apiKey.status}
                         </Badge>
                       </div>
-                      <div className="text-sm text-muted-foreground">{apiKey.key}</div>
+                      <div className="text-sm text-muted-foreground font-mono">{maskApiKey(apiKey.key)}</div>
                       <div className="text-xs text-muted-foreground">
                         Created: {apiKey.created} • Last used: {apiKey.lastUsed}
                       </div>
