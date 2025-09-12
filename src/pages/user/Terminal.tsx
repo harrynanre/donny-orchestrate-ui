@@ -114,6 +114,46 @@ export default function Terminal() {
     }
   }, [terminalOutput])
 
+  // Mouse event handlers for dragging and resizing
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (draggingRef.current) {
+        const { id, startX, startY, origX, origY } = draggingRef.current
+        const newX = origX + (e.clientX - startX)
+        const newY = origY + (e.clientY - startY)
+        
+        setWindows(prev => prev.map(w => 
+          w.id === id ? { ...w, position: { x: Math.max(0, newX), y: Math.max(0, newY) } } : w
+        ))
+      }
+      
+      if (resizingRef.current) {
+        const { id, startX, startY, origW, origH } = resizingRef.current
+        const newW = Math.max(300, origW + (e.clientX - startX))
+        const newH = Math.max(200, origH + (e.clientY - startY))
+        
+        setWindows(prev => prev.map(w => 
+          w.id === id ? { ...w, size: { width: newW, height: newH } } : w
+        ))
+      }
+    }
+
+    const handleMouseUp = () => {
+      draggingRef.current = null
+      resizingRef.current = null
+      document.body.style.cursor = 'default'
+      document.body.style.userSelect = 'auto'
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [])
+
   const addConsoleMessage = (type: ConsoleMessage['type'], message: string) => {
     const timestamp = new Date().toLocaleTimeString()
     setConsoleOutput(prev => [...prev, { timestamp, type, message }])
@@ -339,6 +379,18 @@ export default function Terminal() {
       w.id === id ? { ...w, zIndex: newZIndex } : w
     ))
     setHighestZIndex(newZIndex)
+  }
+
+  const updateWindowUrl = (id: string, newUrl: string) => {
+    setWindows(prev => prev.map(w => 
+      w.id === id ? { 
+        ...w, 
+        url: newUrl, 
+        address: newUrl,
+        iframeKey: (w.iframeKey || 0) + 1,
+        title: `Browser - ${newUrl}`
+      } : w
+    ))
   }
 
   // Terminal command handling (Windows CMD style)
@@ -737,20 +789,39 @@ export default function Terminal() {
       </div>
 
       {/* Floating Windows */}
-      <div className="mt-6 space-y-4">{windows.map((window) => (
+      {windows.map((window) => (
         <div
           key={window.id}
-          className={`relative bg-background border border-border rounded-lg shadow-xl transition-all duration-200 ${
-            window.isMinimized ? 'h-12' : 'h-96'
-          }`}
+          className="fixed bg-background border border-border rounded-lg shadow-2xl"
           style={{
-            width: window.isMinimized ? '300px' : '800px',
-            zIndex: window.zIndex
+            left: window.position.x,
+            top: window.position.y,
+            width: window.isMinimized ? '300px' : window.size.width,
+            height: window.isMinimized ? '40px' : window.size.height,
+            zIndex: window.zIndex,
+            minWidth: '300px',
+            minHeight: '200px'
           }}
           onClick={() => bringToFront(window.id)}
         >
           {/* Window Header */}
-          <div className="flex items-center justify-between p-3 bg-muted border-b border-border">
+          <div 
+            className="flex items-center justify-between p-2 bg-muted border-b border-border cursor-move select-none"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'SPAN') {
+                draggingRef.current = {
+                  id: window.id,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  origX: window.position.x,
+                  origY: window.position.y
+                }
+                document.body.style.cursor = 'grabbing'
+                document.body.style.userSelect = 'none'
+                e.preventDefault()
+              }
+            }}
+          >
             <div className="flex items-center gap-2">
               {window.type === 'browser' && <Globe className="h-4 w-4" />}
               {window.type === 'console' && <Monitor className="h-4 w-4" />}
@@ -784,25 +855,57 @@ export default function Terminal() {
 
           {/* Window Content */}
           {!window.isMinimized && (
-            <div className="flex-1 p-4 overflow-hidden h-80">
+            <div className="flex flex-col h-full">
               {window.type === 'browser' && (
-                <div className="h-full">
-                  <div className="mb-2">
-                    <Input 
-                      defaultValue={window.url} 
-                      className="text-xs bg-background"
-                      readOnly 
+                <>
+                  {/* Address Bar */}
+                  <div className="p-2 border-b border-border bg-background">
+                    <div className="flex gap-2">
+                      <Input 
+                        value={window.address || window.url || ""}
+                        onChange={(e) => {
+                          setWindows(prev => prev.map(w => 
+                            w.id === window.id ? { ...w, address: e.target.value } : w
+                          ))
+                        }}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") {
+                            const url = window.address || window.url || ""
+                            const finalUrl = url.startsWith('http') ? url : `https://${url}`
+                            updateWindowUrl(window.id, finalUrl)
+                          }
+                        }}
+                        className="text-sm bg-white"
+                        placeholder="Enter URL and press Enter"
+                      />
+                      <Button 
+                        size="sm"
+                        onClick={() => {
+                          const url = window.address || window.url || ""
+                          const finalUrl = url.startsWith('http') ? url : `https://${url}`
+                          updateWindowUrl(window.id, finalUrl)
+                        }}
+                      >
+                        Go
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Browser Frame */}
+                  <div className="flex-1 relative">
+                    <iframe 
+                      key={window.iframeKey}
+                      src={window.url} 
+                      className="w-full h-full border-0"
+                      title={window.title}
+                      sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-top-navigation"
                     />
                   </div>
-                  <iframe 
-                    src={window.url} 
-                    className="w-full h-[calc(100%-2rem)] border border-border rounded bg-white"
-                    title={window.title}
-                  />
-                </div>
+                </>
               )}
+              
               {window.type === 'console' && (
-                <div className="h-full bg-black rounded p-3 font-mono text-sm text-green-400 overflow-y-auto">
+                <div className="flex-1 bg-black rounded-b-lg p-3 font-mono text-sm text-green-400 overflow-y-auto">
                   <div>Debug Console Window</div>
                   <div className="text-yellow-400">No errors detected</div>
                   <div className="text-blue-400">Application running normally</div>
@@ -810,6 +913,27 @@ export default function Terminal() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Resize Handle */}
+          {!window.isMinimized && (
+            <div 
+              className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize bg-muted hover:bg-border"
+              style={{ clipPath: 'polygon(100% 0%, 0% 100%, 100% 100%)' }}
+              onMouseDown={(e) => {
+                resizingRef.current = {
+                  id: window.id,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  origW: window.size.width,
+                  origH: window.size.height
+                }
+                document.body.style.cursor = 'se-resize'
+                document.body.style.userSelect = 'none'
+                e.preventDefault()
+                e.stopPropagation()
+              }}
+            />
           )}
         </div>
       ))}
@@ -888,8 +1012,6 @@ export default function Terminal() {
           </div>
         </SheetContent>
       </Sheet>
-
-      </div>
     </div>
   )
 }
