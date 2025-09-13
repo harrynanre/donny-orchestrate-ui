@@ -105,9 +105,23 @@ bun dev
 ```
 
 4. **Open your browser**
-Navigate to [http://localhost:5000](http://localhost:5000)
+Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## 🔧 Integration Guide
+
+### Converting from React/Vite to Next.js
+
+This project provides both the current React/Vite structure and Next.js 15 conversion files:
+
+**Current Structure (React/Vite):**
+- `src/pages/` - Current page components
+- `src/main.tsx` - React entry point
+- `vite.config.ts` - Vite configuration
+
+**Next.js Structure:**
+- `src/app/` - Next.js App Router pages
+- `src/app/layout.tsx` - Root layout
+- `next.config.js` - Next.js configuration
 
 ### Adding to Existing Next.js Project
 
