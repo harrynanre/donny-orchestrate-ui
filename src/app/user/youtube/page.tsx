@@ -1,13 +1,10 @@
+import YouTube from "@/pages/user/YouTube"
+
 export const metadata = {
-  title: "Youtube - Donny Hub",
-  description: "Youtube page",
+  title: "YouTube Processor - Donny Hub",
+  description: "Video content analysis and processing automation",
 }
 
-export default function YoutubePage() {
-  return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-4">Youtube</h1>
-      <p className="text-muted-foreground">This page is under construction.</p>
-    </div>
-  )
+export default function YouTubePage() {
+  return <YouTube />
 }
