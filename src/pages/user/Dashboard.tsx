@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
-import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown, Send } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Bot, CheckSquare, BarChart3, Globe, Activity, Zap, Play, Eye, MessageCircle, ChevronDown, Send, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,14 +12,20 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { agentStore, type Agent } from "@/lib/agent-store"
+import { useWiringManifest, sortFeatures, FeatureStatus } from "@/lib/wiring"
+import { StatusTile } from "@/components/wiring/StatusTile"
+import { Legend } from "@/components/wiring/Legend"
 
 export default function Dashboard() {
-  const navigate = useNavigate()
+  const router = useRouter()
   const [availableAgents, setAvailableAgents] = useState<Agent[]>([])
   const [selectedAgent, setSelectedAgent] = useState("")
   const [chatMessage, setChatMessage] = useState("")
   const [showCreateAgentModal, setShowCreateAgentModal] = useState(false)
   const [showStartTaskModal, setShowStartTaskModal] = useState(false)
+  
+  // Wiring Status-Lens integration
+  const { manifest, loading: manifestLoading, error: manifestError, refresh } = useWiringManifest()
 
   // Load agents and subscribe to live updates
   useEffect(() => {
@@ -39,13 +45,16 @@ export default function Dashboard() {
   const handleQuickAction = (actionId: string) => {
     switch (actionId) {
       case 'create-agent':
-        navigate('/user/agents')
+        router.push('/user/agents')
         break
       case 'start-task':
-        navigate('/user/tasks')
+        router.push('/user/tasks')
         break
     }
   }
+
+  // Calculate features for Status-Lens
+  const allFeatures = manifest ? sortFeatures(manifest.features) : []
   // Fallback: ensure quickActions exists to prevent runtime errors
   const quickActions = [
     { id: 'create-agent', label: 'Create Agent', icon: Bot },
@@ -308,32 +317,91 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* System Status */}
+      {/* Wiring Status-Lens Dashboard */}
       <div>
-        <h2 className="text-2xl font-semibold mb-6">System Status</h2>
-        <Card className="card-enterprise">
-          <CardHeader>
-            <CardTitle className="text-lg">Platform Health</CardTitle>
-            <CardDescription>Real-time status of all Donny Hub services</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-4">
-              {systemStatus.map((service) => (
-                <div key={service.name} className="flex items-center gap-3">
-                  <Badge 
-                    className={`status-pill status-${service.color}`}
-                  >
-                    <div className={`w-2 h-2 rounded-full bg-current mr-2`} />
-                    {service.name}
-                  </Badge>
-                  <span className="text-sm text-muted-foreground capitalize">
-                    {service.status}
-                  </span>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-semibold">System Wiring Status</h2>
+            <p className="text-muted-foreground">Real-time system health from manifest</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refresh}
+            disabled={manifestLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${manifestLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Legend - 1 column */}
+          <div className="lg:col-span-1">
+            <Legend />
+          </div>
+
+          {/* Status Grid - 3 columns */}
+          <div className="lg:col-span-3">
+            {manifestError ? (
+              <Card className="border-rose-200 bg-rose-50/50">
+                <CardContent className="p-6 text-center">
+                  <div className="text-rose-600 mb-2">Failed to load manifest</div>
+                  <div className="text-sm text-rose-500">{manifestError}</div>
+                </CardContent>
+              </Card>
+            ) : manifestLoading && !manifest ? (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="animate-pulse">Loading manifest...</div>
+                </CardContent>
+              </Card>
+            ) : !manifest || allFeatures.length === 0 ? (
+              <Card className="border-slate-200 bg-slate-50/20">
+                <CardContent className="p-6 text-center">
+                  <div className="text-slate-600 mb-2">No features available</div>
+                  <div className="text-sm text-slate-500">
+                    Check your manifest configuration
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {allFeatures.map(([key, feature]) => (
+                  <StatusTile
+                    key={key}
+                    feature={feature}
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => router.push(`/user/wiring?feature=${encodeURIComponent(key)}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Environment Info */}
+        {manifest && (
+          <div className="mt-6">
+            <Card className="bg-muted/20">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between text-sm">
+                  <div>
+                    <span className="font-medium">Environment:</span> {manifest.env.name}
+                  </div>
+                  <div>
+                    <span className="font-medium">Generated:</span>{' '}
+                    {new Date(manifest.generated_at).toLocaleString()}
+                  </div>
+                  <div>
+                    <span className="font-medium">Features:</span> {allFeatures.length}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
 
       {/* Recent Activity Preview */}
