@@ -143,50 +143,15 @@
     @apply transition-transform duration-200 hover:scale-105;
   }
   
-  .bg-gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .shadow-elegant {
-    box-shadow: var(--shadow-elegant);
-  }
-  
-  .shadow-glow {
-    box-shadow: var(--shadow-glow);
-  }
-  
-  .shadow-card {
-    box-shadow: var(--shadow-card);
-  }
-  
   .button-primary {
-    @apply text-primary-foreground transition-all duration-300;
-    background: var(--gradient-primary);
-    box-shadow: var(--shadow-elegant);
-  }
-  
-  .button-primary:hover {
-    box-shadow: var(--shadow-glow);
+    @apply bg-gradient-primary text-primary-foreground shadow-elegant hover:shadow-glow transition-all duration-300;
   }
 
   .card-elegant {
-    @apply bg-card border border-border/50 rounded-2xl;
-    box-shadow: var(--shadow-card);
+    @apply bg-card border border-border/50 shadow-card rounded-2xl;
   }
 
   .input-elegant {
     @apply border-border/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-xl;
-  }
-  
-  .sidebar-nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors;
-  }
-  
-  .sidebar-nav-item-active {
-    @apply bg-sidebar-accent text-sidebar-accent-foreground font-medium;
   }
 }

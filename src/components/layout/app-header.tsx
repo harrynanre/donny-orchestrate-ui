@@ -21,7 +21,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/theme/theme-toggle"
-import { useRouter } from "next/navigation"
+import { useNavigate } from "react-router-dom"
 import { useState, useEffect } from "react"
 
 interface ProfileData {
@@ -34,7 +34,7 @@ interface ProfileData {
 }
 
 export function AppHeader() {
-  const router = useRouter()
+  const navigate = useNavigate()
   const [profileData, setProfileData] = useState<ProfileData>({
     name: "John Doe",
     email: "john@company.com",
@@ -197,16 +197,16 @@ export function AppHeader() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push('/user/settings')}>
+              <DropdownMenuItem onClick={() => navigate('/user/settings')}>
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/user/settings')}>
+              <DropdownMenuItem onClick={() => navigate('/user/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive" onClick={() => router.push('/')}>
+              <DropdownMenuItem className="text-destructive" onClick={() => navigate('/')}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
