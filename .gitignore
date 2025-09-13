@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 .claude/logs/
 .claude/settings.local.json
+.pnpm-store/
+.next/
