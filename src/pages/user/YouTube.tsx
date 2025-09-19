@@ -239,10 +239,12 @@ export default function YouTube() {
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500))
-      // Mock logic: transcript ready after video has been processed and some time has passed
-      const processed = processingState.transcriptGenerated
-      const randomReady = Math.random() > 0.3 // 70% chance of being ready on each check
-      return { transcriptReady: processed && randomReady }
+      // Mock logic: transcript becomes ready after some polling attempts (simulating external API)
+      // For demo purposes, let's make it ready after 6-9 seconds of polling
+      const pollCount = transcriptState.isPolling ? Math.floor(Date.now() / 3000) % 10 : 0
+      const shouldBeReady = pollCount >= 2 // Ready after ~6 seconds of polling
+      console.log(`Transcript status check for ${videoId}: poll attempt ${pollCount}, ready: ${shouldBeReady}`)
+      return { transcriptReady: shouldBeReady }
     } catch (error) {
       console.error('Transcript status check failed:', error)
       return { transcriptReady: false }
@@ -272,8 +274,8 @@ This transcript is now ready to be saved to your tasks for further processing.`
 
   // Polling effect for transcript readiness
   useEffect(() => {
-    if (!videoInfo?.videoId || !processingState.transcriptGenerated) {
-      // Stop polling if no video or transcript not generated yet
+    if (!videoInfo?.videoId) {
+      // Stop polling if no video loaded
       if (pollingRef.current) {
         clearInterval(pollingRef.current)
         pollingRef.current = null
@@ -293,13 +295,15 @@ This transcript is now ready to be saved to your tasks for further processing.`
     }
 
     // Start polling
-    console.info('yt/transcript_ready', { videoId: videoInfo.videoId })
+    console.info('yt/transcript_ready - Starting polling for:', { videoId: videoInfo.videoId })
     setTranscriptState(prev => ({ ...prev, isPolling: true }))
     
     const pollTranscriptStatus = async () => {
       try {
         const status = await checkTranscriptStatus(videoInfo.videoId)
+        console.log('Polling result:', status)
         if (status.transcriptReady) {
+          console.info('Transcript is now ready! Stopping polling.')
           setTranscriptState(prev => ({ ...prev, transcriptReady: true, isPolling: false }))
           if (pollingRef.current) {
             clearInterval(pollingRef.current)
@@ -323,7 +327,7 @@ This transcript is now ready to be saved to your tasks for further processing.`
         pollingRef.current = null
       }
     }
-  }, [videoInfo?.videoId, processingState.transcriptGenerated, transcriptState.transcriptReady, transcriptState.pulledToTasks])
+  }, [videoInfo?.videoId, transcriptState.transcriptReady, transcriptState.pulledToTasks])
 
   const handlePullTranscript = async () => {
     if (!videoInfo || !transcriptState.transcriptReady || transcriptState.isPulling) return
