@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Youtube, Play, FileText, Download, Save, Link, Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "@/hooks/use-toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { taskStore } from "@/lib/task-store"
 
 interface VideoInfo {
   videoId: string
@@ -33,6 +34,13 @@ interface ProcessingState {
   error?: string
 }
 
+interface TranscriptState {
+  transcriptReady: boolean
+  isPulling: boolean
+  pulledToTasks: boolean
+  isPolling: boolean
+}
+
 export default function YouTube() {
   const [youtubeUrl, setYoutubeUrl] = useState("")
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
@@ -43,7 +51,14 @@ export default function YouTube() {
     transcript: "",
     rawDataSaved: false
   })
+  const [transcriptState, setTranscriptState] = useState<TranscriptState>({
+    transcriptReady: false,
+    isPulling: false,
+    pulledToTasks: false,
+    isPolling: false
+  })
   const audioRef = useRef<HTMLAudioElement>(null)
+  const pollingRef = useRef<NodeJS.Timeout | null>(null)
 
   // Extract video ID from YouTube URL
   const extractVideoId = (url: string): string | null => {
@@ -217,6 +232,158 @@ export default function YouTube() {
     const m = Math.floor((seconds % 3600) / 60)
     const s = Math.floor(seconds % 60)
     return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`
+  }
+
+  // Transcript status API simulation
+  const checkTranscriptStatus = async (videoId: string): Promise<{ transcriptReady: boolean }> => {
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 500))
+      // Mock logic: transcript ready after video has been processed and some time has passed
+      const processed = processingState.transcriptGenerated
+      const randomReady = Math.random() > 0.3 // 70% chance of being ready on each check
+      return { transcriptReady: processed && randomReady }
+    } catch (error) {
+      console.error('Transcript status check failed:', error)
+      return { transcriptReady: false }
+    }
+  }
+
+  const pullTranscriptFromAPI = async (videoId: string): Promise<{ success: boolean; transcript?: string }> => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      
+      // Use existing transcript if generated, or create a mock one
+      const transcript = processingState.transcript || `[Pulled Transcript for Video: ${videoId}]
+
+This is a transcript that was pulled from the external API.
+It contains the complete transcription of the YouTube video.
+The content includes timestamps, speaker identification, and clean text formatting.
+
+This transcript is now ready to be saved to your tasks for further processing.`
+
+      return { success: true, transcript }
+    } catch (error) {
+      console.error('Pull transcript failed:', error)
+      return { success: false }
+    }
+  }
+
+  // Polling effect for transcript readiness
+  useEffect(() => {
+    if (!videoInfo?.videoId || !processingState.transcriptGenerated) {
+      // Stop polling if no video or transcript not generated yet
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+      setTranscriptState(prev => ({ ...prev, isPolling: false, transcriptReady: false }))
+      return
+    }
+
+    if (transcriptState.transcriptReady || transcriptState.pulledToTasks) {
+      // Stop polling if already ready or already pulled
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+      setTranscriptState(prev => ({ ...prev, isPolling: false }))
+      return
+    }
+
+    // Start polling
+    console.info('yt/transcript_ready', { videoId: videoInfo.videoId })
+    setTranscriptState(prev => ({ ...prev, isPolling: true }))
+    
+    const pollTranscriptStatus = async () => {
+      try {
+        const status = await checkTranscriptStatus(videoInfo.videoId)
+        if (status.transcriptReady) {
+          setTranscriptState(prev => ({ ...prev, transcriptReady: true, isPolling: false }))
+          if (pollingRef.current) {
+            clearInterval(pollingRef.current)
+            pollingRef.current = null
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error)
+      }
+    }
+
+    // Initial check
+    pollTranscriptStatus()
+    
+    // Set up polling interval
+    pollingRef.current = setInterval(pollTranscriptStatus, 3000)
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current)
+        pollingRef.current = null
+      }
+    }
+  }, [videoInfo?.videoId, processingState.transcriptGenerated, transcriptState.transcriptReady, transcriptState.pulledToTasks])
+
+  const handlePullTranscript = async () => {
+    if (!videoInfo || !transcriptState.transcriptReady || transcriptState.isPulling) return
+
+    console.info('yt/transcript_pull_clicked', { videoId: videoInfo.videoId })
+    setTranscriptState(prev => ({ ...prev, isPulling: true }))
+
+    try {
+      const result = await pullTranscriptFromAPI(videoInfo.videoId)
+      
+      if (!result.success) {
+        throw new Error('Failed to pull transcript from API')
+      }
+
+      // Save to tasks
+      const newTask = taskStore.addTask({
+        title: `YouTube Transcript — ${videoInfo.title}`,
+        description: `Transcript pulled from YouTube video: ${videoInfo.title}`,
+        assignedAgent: "1", // Default agent
+        status: "queued",
+        priority: "medium",
+        category: "transcript"
+      })
+
+      console.info('yt/transcript_saved_to_tasks', { videoId: videoInfo.videoId, taskId: newTask.id })
+      
+      setTranscriptState(prev => ({ 
+        ...prev, 
+        isPulling: false, 
+        pulledToTasks: true 
+      }))
+
+      // Show success toast with Open Task link
+      toast({
+        title: "Transcript saved to Tasks",
+        description: "Successfully saved YouTube transcript to your task list",
+        action: (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => {
+              // Navigate to tasks page - in a real app this would use router
+              window.location.href = '/user/tasks'
+            }}
+          >
+            Open Task
+          </Button>
+        )
+      })
+    } catch (error) {
+      console.error('Pull transcript error:', error)
+      setTranscriptState(prev => ({ ...prev, isPulling: false }))
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to pull transcript'
+      toast({
+        title: "Pull failed",
+        description: errorMessage.includes('timeout') ? "Timed out. Please try again." : errorMessage,
+        variant: "destructive"
+      })
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -615,6 +782,54 @@ Video Details:
               </div>
             </CardContent>
           </Card>
+
+          {/* Transcript Ready Banner */}
+          {transcriptState.transcriptReady ? (
+            <div 
+              className="rounded-xl border px-4 py-3 bg-green-50 border-green-200 text-green-900 dark:bg-green-950 dark:border-green-800 dark:text-green-100 flex items-center justify-between gap-3"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4" />
+                <span className="font-medium">✅ Transcript available</span>
+              </div>
+              <Button
+                onClick={handlePullTranscript}
+                disabled={transcriptState.isPulling || transcriptState.pulledToTasks}
+                className="rounded-lg px-3 py-2 font-semibold bg-green-500 hover:bg-green-600 text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                size="sm"
+                aria-label="Pull Transcript"
+              >
+                {transcriptState.isPulling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Pulling…
+                  </>
+                ) : transcriptState.pulledToTasks ? (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Pulled to Tasks
+                  </>
+                ) : (
+                  "Pull Transcript"
+                )}
+              </Button>
+            </div>
+          ) : (
+            transcriptState.isPolling && (
+              <div className="rounded-xl border px-4 py-3 bg-muted/50 text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Checking transcript availability…</span>
+              </div>
+            )
+          )}
+
+          {!transcriptState.transcriptReady && !transcriptState.isPolling && processingState.transcriptGenerated && (
+            <div className="rounded-xl border px-4 py-3 bg-muted/20 text-muted-foreground">
+              <span>Transcript not available yet…</span>
+            </div>
+          )}
 
           {/* Results Panels */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
