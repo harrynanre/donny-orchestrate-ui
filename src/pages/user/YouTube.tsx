@@ -336,13 +336,7 @@ This transcript is now ready to be saved to your tasks for further processing.`
     setTranscriptState(prev => ({ ...prev, isPulling: true }))
 
     try {
-      const result = await pullTranscriptFromAPI(videoInfo.videoId)
-      
-      if (!result.success) {
-        throw new Error('Failed to pull transcript from API')
-      }
-
-      // Save to tasks
+      // Save to tasks initially as queued
       const newTask = taskStore.addTask({
         title: `YouTube Transcript — ${videoInfo.title}`,
         description: `Transcript pulled from YouTube video: ${videoInfo.title}`,
@@ -350,6 +344,45 @@ This transcript is now ready to be saved to your tasks for further processing.`
         status: "queued",
         priority: "medium",
         category: "transcript"
+      })
+
+      // Update task to running and show progress steps
+      taskStore.updateTask(newTask.id, {
+        status: "running",
+        lastEvent: "Initializing transcript download..."
+      })
+
+      // Simulate progress steps
+      await new Promise(resolve => setTimeout(resolve, 800))
+      taskStore.updateTask(newTask.id, {
+        lastEvent: "Connecting to YouTube API..."
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 600))
+      taskStore.updateTask(newTask.id, {
+        lastEvent: "Fetching transcript data..."
+      })
+
+      const result = await pullTranscriptFromAPI(videoInfo.videoId)
+      
+      if (!result.success) {
+        taskStore.updateTask(newTask.id, {
+          status: "failed",
+          lastEvent: "Failed to pull transcript from API"
+        })
+        throw new Error('Failed to pull transcript from API')
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500))
+      taskStore.updateTask(newTask.id, {
+        lastEvent: "Processing transcript content..."
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 400))
+      taskStore.updateTask(newTask.id, {
+        status: "done",
+        lastEvent: "Transcript successfully saved",
+        duration: "2.3 seconds"
       })
 
       console.info('yt/transcript_saved_to_tasks', { videoId: videoInfo.videoId, taskId: newTask.id })
